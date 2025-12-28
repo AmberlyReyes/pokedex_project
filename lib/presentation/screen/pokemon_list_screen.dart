@@ -215,31 +215,6 @@ class _PokemonListScreenState extends ConsumerState<PokemonListScreen> {
           );
         },
       ),
-      bottomNavigationBar: BottomNavigationBar(
-        currentIndex: 0, // Selecciona el índice de la lista
-        onTap: (index) {
-          if (index == 1) {
-            Navigator.pushReplacement(context, PageTransitions.fade(const FavoritesScreen()));
-          }
-          if (index == 2) {
-            Navigator.pushReplacement(context, PageTransitions.fade(const PokearthMapScreen()));
-          }
-        },
-        items: const [
-          BottomNavigationBarItem(
-            icon: Icon(Icons.list),
-            label: 'Lista',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.favorite),
-            label: 'Favoritos',
-          ),
-          BottomNavigationBarItem(
-            icon: Icon(Icons.map),
-            label: 'Pokéarth',
-          ),
-        ],
-      ),
     );
   }
 

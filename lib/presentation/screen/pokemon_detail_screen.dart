@@ -317,7 +317,9 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
               child: Wrap(
                 spacing: 8,
                 children: _detail!.types
-                    .map((t) => Chip(label: Text(_translateType(t))))
+                    .map((t) => Chip(
+                      label: Text(_translateType(t)),
+                    ))
                     .toList(),
               ),
             ),
@@ -390,62 +392,46 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
                     separatorBuilder: (_, __) => const SizedBox(height: 12),
                     itemBuilder: (context, index) {
                       final ability = _detail!.abilities[index];
-                      // Truncate effect to 140-160 chars
-                      final truncatedEffect = ability.effect.length > 160
-                          ? '${ability.effect.substring(0, 157)}...'
-                          : ability.effect;
                       
                       return Card(
                         elevation: 2,
                         child: Padding(
                           padding: const EdgeInsets.all(12),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
+                          child: Row(
                             children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Text(
-                                      _capitalize(ability.name),
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .titleMedium
-                                          ?.copyWith(fontWeight: FontWeight.bold),
+                              Expanded(
+                                child: Text(
+                                  _capitalize(ability.name),
+                                  style: Theme.of(context)
+                                      .textTheme
+                                      .titleMedium
+                                      ?.copyWith(fontWeight: FontWeight.bold),
+                                ),
+                              ),
+                              if (ability.isHidden)
+                                Container(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 8,
+                                    vertical: 4,
+                                  ),
+                                  decoration: BoxDecoration(
+                                    color: Theme.of(context)
+                                        .colorScheme
+                                        .secondary,
+                                    borderRadius:
+                                        BorderRadius.circular(12),
+                                  ),
+                                  child: Text(
+                                    'Oculta',
+                                    style: TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.bold,
+                                      color: Theme.of(context)
+                                          .colorScheme
+                                          .onSecondary,
                                     ),
                                   ),
-                                  if (ability.isHidden)
-                                    Container(
-                                      padding: const EdgeInsets.symmetric(
-                                        horizontal: 8,
-                                        vertical: 4,
-                                      ),
-                                      decoration: BoxDecoration(
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .secondary,
-                                        borderRadius:
-                                            BorderRadius.circular(12),
-                                      ),
-                                      child: Text(
-                                        'Oculta',
-                                        style: TextStyle(
-                                          fontSize: 12,
-                                          fontWeight: FontWeight.bold,
-                                          color: Theme.of(context)
-                                              .colorScheme
-                                              .onSecondary,
-                                        ),
-                                      ),
-                                    ),
-                                ],
-                              ),
-                              const SizedBox(height: 8),
-                              Text(
-                                truncatedEffect,
-                                style: Theme.of(context).textTheme.bodyMedium,
-                                maxLines: 3,
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                                ),
                             ],
                           ),
                         ),
@@ -653,7 +639,6 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
                     child: Text(
                       'Total Stats: $totalStats',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
                         fontWeight: FontWeight.bold,
                       ),
                     ),
@@ -790,7 +775,6 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
             children: matchups.map((e) {
               return Chip(
                 label: Text('${_translateType(e.key)} (x${e.value})'),
-                backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
               );
             }).toList(),
           ),
@@ -813,7 +797,6 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
             children: immunities.map((type) {
               return Chip(
                 label: Text(_translateType(type)),
-                backgroundColor: Theme.of(context).colorScheme.primary.withOpacity(0.1),
               );
             }).toList(),
           ),
