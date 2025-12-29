@@ -4,6 +4,7 @@ import 'package:hive_flutter/hive_flutter.dart';
 import '../../data/models/pokemon_detail.dart';
 import '../../data/models/pokemon_evolution.dart';
 import '../../data/models/pokemon_move.dart';
+import '../../data/models/pokemon_variant.dart';
 import '../../data/datasources/poke_api.dart';
 import '../widgets/page_transitions.dart';
 import '../widgets/radar_chart.dart';
@@ -11,6 +12,7 @@ import '../widgets/pokemon_share_card.dart';
 import '../widgets/error_widget.dart';
 import '../../data/helpers/error_formatter.dart';
 import '../../l10n/app_localizations.dart';
+import 'pokemon_list_screen.dart';
 
 class PokemonDetailScreen extends StatefulWidget {
   final int id;
@@ -26,6 +28,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
     with TickerProviderStateMixin {
   PokemonDetail? _detail;
   List<PokemonEvolution> _evolutions = [];
+  List<PokemonVariant> _variants = [];
   String? _error;
   bool _loading = true;
 
@@ -81,6 +84,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
       // fetch detail and evolutions individually to prevent type errors
       final detail = await PokeApi.fetchPokemonDetail(widget.id);
       final evolutions = await PokeApi.fetchEvolutionChain(widget.id);
+      final variants = await PokeApi.fetchPokemonVariants(detail.name);
 
       // Verificar si el Pokémon es favorito
       final box = await Hive.openBox<PokemonDetail>('favorites');
@@ -91,6 +95,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
       setState(() {
         _detail = detail;
         _evolutions = evolutions;
+        _variants = variants;
         _loading = false;
       });
 
@@ -158,6 +163,15 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
     return Scaffold(
       backgroundColor: const Color(0xFFF5F5F5), // Fondo blanquecino
       appBar: AppBar(
+        leading: IconButton(
+          icon: const Icon(Icons.arrow_back),
+          onPressed: () {
+            Navigator.pushReplacement(
+              context,
+              MaterialPageRoute(builder: (context) => const PokemonListScreen()),
+            );
+          },
+        ),
         title: Text(_capitalize(widget.name)),
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
@@ -595,9 +609,126 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
               ],
             ),
           ),
+          const SizedBox(height: 24),
+
+          // Variants section (Mega, Gigantamax, etc.)
+          if (_variants.isNotEmpty)
+            _AnimatedDetailSection(
+              delay: const Duration(milliseconds: 800),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('Variantes',
+                      style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.black)),
+                  const SizedBox(height: 8),
+                  SizedBox(
+                    height: 160,
+                    child: ListView.separated(
+                      scrollDirection: Axis.horizontal,
+                      itemCount: _variants.length,
+                      separatorBuilder: (_, __) => const SizedBox(width: 8),
+                      itemBuilder: (context, i) {
+                        final variant = _variants[i];
+                        return Container(
+                          padding: const EdgeInsets.all(8),
+                          decoration: BoxDecoration(
+                            border: Border.all(
+                              color: _getVariantColor(variant.variantType),
+                              width: 2,
+                            ),
+                            borderRadius: BorderRadius.circular(12),
+                          ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            mainAxisAlignment: MainAxisAlignment.center,
+                            children: [
+                              ClipRRect(
+                                borderRadius: BorderRadius.circular(12),
+                                child: Image.network(
+                                  variant.imageUrl,
+                                  width: 80,
+                                  height: 80,
+                                  fit: BoxFit.contain,
+                                  errorBuilder: (_, _, _) =>
+                                      const Icon(Icons.image_not_supported, size: 50),
+                                ),
+                              ),
+                              const SizedBox(height: 6),
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: _getVariantColor(variant.variantType),
+                                  borderRadius: BorderRadius.circular(6),
+                                ),
+                                child: Text(
+                                  variant.getDisplayName(),
+                                  style: const TextStyle(
+                                    fontWeight: FontWeight.bold,
+                                    fontSize: 11,
+                                    color: Colors.white,
+                                  ),
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              Wrap(
+                                spacing: 2,
+                                children: variant.types.map((type) {
+                                  return Container(
+                                    padding: const EdgeInsets.symmetric(
+                                      horizontal: 4,
+                                      vertical: 2,
+                                    ),
+                                    decoration: BoxDecoration(
+                                      color: Theme.of(context).colorScheme.primaryContainer,
+                                      borderRadius: BorderRadius.circular(4),
+                                    ),
+                                    child: Text(
+                                      _translateType(type),
+                                      style: TextStyle(
+                                        fontSize: 9,
+                                        fontWeight: FontWeight.bold,
+                                        color: Theme.of(context)
+                                            .colorScheme
+                                            .onPrimaryContainer,
+                                      ),
+                                    ),
+                                  );
+                                }).toList(),
+                              ),
+                            ],
+                          ),
+                        );
+                      },
+                    ),
+                  ),
+                ],
+              ),
+            ),
         ],
       ),
     );
+  }
+
+  Color _getVariantColor(String variantType) {
+    switch (variantType) {
+      case 'mega':
+        return Colors.purple;
+      case 'gigantamax':
+        return Colors.red;
+      case 'alola':
+        return Colors.orange;
+      case 'galar':
+        return Colors.blue;
+      case 'paldea':
+        return Colors.green;
+      default:
+        return Colors.grey;
+    }
   }
 
   Widget _buildStatsTab() {

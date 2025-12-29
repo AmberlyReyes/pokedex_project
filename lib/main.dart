@@ -9,6 +9,7 @@ import 'package:pokedez/data/models/pokemon_detail.dart';
 import 'package:pokedez/data/models/pokemon_ability.dart';
 import 'package:pokedez/data/models/pokemon_evolution.dart';
 import 'package:pokedez/data/models/pokemon_move.dart';
+import 'package:pokedez/data/models/pokemon_variant.dart';
 import 'presentation/screen/home_screen.dart';
 import 'l10n/app_localizations.dart';
 import 'presentation/providers/locale_provider.dart';
@@ -23,6 +24,7 @@ void main() async {
   Hive.registerAdapter(PokemonAbilityAdapter());
   Hive.registerAdapter(PokemonEvolutionAdapter());
   Hive.registerAdapter(PokemonMoveAdapter());
+  Hive.registerAdapter(PokemonVariantAdapter());
   await Hive.openBox<PokemonDetail>('favorites');
 
   // Inicializa GraphQL

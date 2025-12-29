@@ -5,6 +5,7 @@ import '../models/pokemon_list_item.dart';
 import '../models/pokemon_detail.dart';
 import '../models/pokemon_evolution.dart';
 import '../models/pokemon_encounter.dart';
+import '../models/pokemon_variant.dart';
 
 class PokeApi {
   static const _graphqlEndpoint = 'https://beta.pokeapi.co/graphql/v1beta';
@@ -614,4 +615,74 @@ class PokeApi {
       throw Exception('Error fetching pokemon by location: $e');
     }
   }
+
+  /// Fetch pokemon variants (mega, gigantamax, regional forms)
+  static Future<List<PokemonVariant>> fetchPokemonVariants(String pokemonName) async {
+    const query = '''
+      query GetPokemonVariants(\$name: String!) {
+        pokemon_v2_pokemon(where: {name: {_eq: \$name}}) {
+          id
+          pokemon_v2_pokemonforms {
+            id
+            form_name
+            pokemon {
+              name
+              id
+            }
+            pokemon_v2_pokemontypes {
+              pokemon_v2_type {
+                name
+              }
+            }
+          }
+        }
+      }
+    ''';
+
+    try {
+      final result = await _client.query(
+        QueryOptions(
+          document: gql(query),
+          variables: {'name': pokemonName},
+        ),
+      );
+
+      if (result.hasException) {
+        throw Exception('Error fetching pokemon variants: ${result.exception}');
+      }
+
+      final pokemons = result.data?['pokemon_v2_pokemon'] as List<dynamic>? ?? [];
+      if (pokemons.isEmpty) return [];
+
+      final pokemon = pokemons[0] as Map<String, dynamic>;
+      final forms = pokemon['pokemon_v2_pokemonforms'] as List<dynamic>? ?? [];
+
+      // Filter for important variants only (mega, gigantamax, regional forms)
+      final variants = <PokemonVariant>[];
+      for (final form in forms) {
+        final formData = form as Map<String, dynamic>;
+        final formName = formData['form_name'] as String? ?? '';
+        
+        // Only include mega, gigantamax, alola, galar, paldea forms and skip the default form
+        if ((formName.contains('mega') || 
+             formName.contains('gigantamax') || 
+             formName.contains('alola') || 
+             formName.contains('galar') || 
+             formName.contains('paldea')) &&
+            formName.isNotEmpty) {
+          try {
+            final variant = PokemonVariant.fromGraphQL(formData);
+            variants.add(variant);
+          } catch (e) {
+            continue;
+          }
+        }
+      }
+
+      return variants;
+    } catch (e) {
+      return [];
+    }
+  }
 }
+
