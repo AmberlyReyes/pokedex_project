@@ -4,6 +4,8 @@ import 'package:google_fonts/google_fonts.dart';
 import '../../domain/models/trivia_state.dart';
 import '../providers/trivia_provider.dart';
 import '../theme/app_theme.dart';
+import '../widgets/error_widget.dart';
+import '../../data/helpers/error_formatter.dart';
 import '../../l10n/app_localizations.dart';
 
 class TriviaScreen extends ConsumerWidget {
@@ -59,9 +61,24 @@ class TriviaScreen extends ConsumerWidget {
           ? _buildInitialScreen(context, ref)
           : triviaState.status == GameStatus.loading
               ? const Center(child: CircularProgressIndicator())
-              : triviaState.status == GameStatus.gameOver
-                  ? _buildGameOverScreen(context, ref, triviaState)
-                  : _buildGameScreen(context, ref, triviaState),
+              : triviaState.status == GameStatus.error
+                  ? _buildErrorScreen(context, ref, triviaState)
+                  : triviaState.status == GameStatus.gameOver
+                      ? _buildGameOverScreen(context, ref, triviaState)
+                      : _buildGameScreen(context, ref, triviaState),
+    );
+  }
+
+  Widget _buildErrorScreen(BuildContext context, WidgetRef ref, TriviaState state) {
+    return Container(
+      color: const Color.fromARGB(255, 1, 8, 42),
+      child: ErrorMessageWidget(
+        title: 'Se requiere Internet',
+        message: '\nVerifica tu conexión y vuelve a intentarlo.',
+        icon: Icons.wifi_off,
+        iconColor: Colors.orange[400],
+        onRetry: () => ref.read(triviaProvider.notifier).startGame(),
+      ),
     );
   }
 
