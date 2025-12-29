@@ -28,7 +28,7 @@ class ErrorFormatter {
     }
     
     // Error desconocido
-    return 'Algo salió mal.\nIntenta de nuevo.';
+    return '\nIntenta de nuevo.';
   }
 
   /// Retorna un título apropiado para el error

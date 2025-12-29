@@ -8,6 +8,8 @@ import '../../data/datasources/poke_api.dart';
 import '../widgets/page_transitions.dart';
 import '../widgets/radar_chart.dart';
 import '../widgets/pokemon_share_card.dart';
+import '../widgets/error_widget.dart';
+import '../../data/helpers/error_formatter.dart';
 import '../../l10n/app_localizations.dart';
 
 class PokemonDetailScreen extends StatefulWidget {
@@ -228,30 +230,28 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
       body: _loading
           ? const Center(child: CircularProgressIndicator())
           : _error != null
-              ? Center(
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text('${l10n.error}: $_error'),
-                      const SizedBox(height: 12),
-                      ElevatedButton(onPressed: _load, child: Text(l10n.retry))
-                    ],
-                  ),
+              ? ErrorMessageWidget(
+                  title: ErrorFormatter.getTitle(_error),
+                  message: ErrorFormatter.getUserMessage(_error),
+                  onRetry: _load,
                 )
               : _detail == null
-                  ? Center(child: Text(l10n.noData))
-                  : FadeTransition(
-                      opacity: _fadeAnimation,
-                      child: SlideTransition(
-                        position: _slideAnimation,
-                        child: TabBarView(
-                          controller: _tabController,
-                          children: [
-                            _buildBasicInfoTab(),
-                            _buildAbilitiesTab(),
-                            _buildStatsTab(),
-                            _buildCombatTab(),
-                          ],
+                  ? Center(child: Text(l10n.noData, style: const TextStyle(color: Colors.black)))
+                  : DefaultTextStyle(
+                      style: const TextStyle(color: Colors.black),
+                      child: FadeTransition(
+                        opacity: _fadeAnimation,
+                        child: SlideTransition(
+                          position: _slideAnimation,
+                          child: TabBarView(
+                            controller: _tabController,
+                            children: [
+                              _buildBasicInfoTab(),
+                              _buildAbilitiesTab(),
+                              _buildStatsTab(),
+                              _buildCombatTab(),
+                            ],
+                          ),
                         ),
                       ),
                     ),
@@ -304,7 +304,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
             child: Center(
               child: Text(
                 '#${_detail!.id}  ${_capitalize(_detail!.name)}',
-                style: Theme.of(context).textTheme.headlineSmall,
+                style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.black),
               ),
             ),
           ),
@@ -335,26 +335,26 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
                 Column(
                   children: [
                     Text(l10n.height,
-                        style: Theme.of(context).textTheme.labelLarge),
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Colors.black)),
                     Text('${_detail!.height / 10} m',
-                        style: Theme.of(context).textTheme.bodyLarge),
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.black)),
                   ],
                 ),
                 Column(
                   children: [
                     Text(l10n.weight,
-                        style: Theme.of(context).textTheme.labelLarge),
+                        style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Colors.black)),
                     Text('${_detail!.weight / 10} kg',
-                        style: Theme.of(context).textTheme.bodyLarge),
+                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.black)),
                   ],
                 ),
                  if (_detail!.eggGroups.isNotEmpty)
                   Column(
                     children: [
                       Text(l10n.eggGroups,
-                          style: Theme.of(context).textTheme.labelLarge),
+                          style: Theme.of(context).textTheme.labelLarge?.copyWith(color: Colors.black)),
                       Text(_detail!.eggGroups.map(_capitalize).join(', '),
-                          style: Theme.of(context).textTheme.bodyLarge),
+                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(color: Colors.black)),
                     ],
                   ),
               ],
@@ -380,10 +380,10 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Habilidades',
-                    style: Theme.of(context).textTheme.headlineSmall),
+                    style: Theme.of(context).textTheme.headlineSmall?.copyWith(color: Colors.black)),
                 const SizedBox(height: 16),
                 if (_detail!.abilities.isEmpty)
-                  const Text('No hay habilidades disponibles')
+                  const Text('No hay habilidades disponibles', style: TextStyle(color: Colors.black))
                 else
                   ListView.separated(
                     shrinkWrap: true,
@@ -405,7 +405,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
                                   style: Theme.of(context)
                                       .textTheme
                                       .titleMedium
-                                      ?.copyWith(fontWeight: FontWeight.bold),
+                                      ?.copyWith(fontWeight: FontWeight.bold, color: Colors.black),
                                 ),
                               ),
                               if (ability.isHidden)
@@ -450,7 +450,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(l10n.evolutions,
-                    style: Theme.of(context).textTheme.titleMedium),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.black)),
                 const SizedBox(height: 8),
                 if (_evolutions.isEmpty)
                   Container(
@@ -573,15 +573,16 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
                                   style: const TextStyle(
                                     fontWeight: FontWeight.bold,
                                     fontSize: 12,
+                                    color: Colors.black,
                                   ),
                                   maxLines: 1,
                                   overflow: TextOverflow.ellipsis,
                                 ),
                                 Text(
                                   '#${ev.id}',
-                                  style: TextStyle(
+                                  style: const TextStyle(
                                     fontSize: 10,
-                                    color: Colors.grey[600],
+                                    color: Colors.black,
                                   ),
                                 ),
                               ],
@@ -616,7 +617,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Stats Overview',
-                    style: Theme.of(context).textTheme.titleMedium),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.black)),
                 const SizedBox(height: 16),
                 Center(
                   child: SizedBox(
@@ -640,6 +641,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
                       'Total Stats: $totalStats',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
+                        color: Colors.black,
                       ),
                     ),
                   ),
@@ -656,7 +658,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text('Detailed Stats',
-                    style: Theme.of(context).textTheme.titleMedium),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.black)),
                 const SizedBox(height: 8),
                 ..._detail!.stats.entries.map((e) {
                   final value = e.value;
@@ -670,8 +672,8 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
                           mainAxisAlignment:
                               MainAxisAlignment.spaceBetween,
                           children: [
-                            Text(_capitalize(e.key)),
-                            Text('$value (${(pct * 100).toInt()}%)')
+                            Text(_capitalize(e.key), style: const TextStyle(color: Colors.black)),
+                            Text('$value (${(pct * 100).toInt()}%)', style: const TextStyle(color: Colors.black))
                           ],
                         ),
                         const SizedBox(height: 6),
@@ -702,10 +704,10 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(l10n.moves,
-                    style: Theme.of(context).textTheme.titleMedium),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.black)),
                 const SizedBox(height: 8),
                 if (_detail!.moves.isEmpty)
-                  Text(l10n.noMoves)
+                  Text(l10n.noMoves, style: const TextStyle(color: Colors.black))
                 else
                   _buildMovesSection(),
               ],
@@ -869,7 +871,7 @@ class _MovesSectionState extends State<_MovesSection> {
           scrollDirection: Axis.horizontal,
           child: Row(
             children: [
-              const Text('Método: ', style: TextStyle(fontWeight: FontWeight.bold)),
+              const Text('Método: ', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
               const SizedBox(width: 8),
               ...availableMethods.map((method) {
                 final isSelected = selectedMethod == method;

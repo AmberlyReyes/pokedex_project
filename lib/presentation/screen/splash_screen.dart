@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'dart:async';
+import '../../data/helpers/error_formatter.dart';
+import '../widgets/error_widget.dart';
 
 class SplashScreen extends StatefulWidget {
   final Widget child;
@@ -18,6 +20,8 @@ class _SplashScreenState extends State<SplashScreen>
   late Animation<double> _fadeOutAnimation;
   late Animation<double> _scaleAnimation;
   bool _showSplash = true;
+  bool _hasError = false;
+  dynamic _error;
 
   @override
   void initState() {
@@ -53,15 +57,28 @@ class _SplashScreenState extends State<SplashScreen>
       ),
     );
 
-    // Start animation
-    _controller.forward();
+    // Start animation and initialization
+    _initializeApp();
+  }
 
-    // Wait 5 seconds then hide splash
-    Timer(const Duration(milliseconds: 5000), () {
-      if (mounted) {
+  Future<void> _initializeApp() async {
+    try {
+      // Start animation
+      _controller.forward();
+      // Wait for animation to complete
+      await Future.delayed(const Duration(milliseconds: 5000));
+
+      if (mounted && !_hasError) {
         setState(() => _showSplash = false);
       }
-    });
+    } catch (e) {
+      if (mounted) {
+        setState(() {
+          _hasError = true;
+          _error = e;
+        });
+      }
+    }
   }
 
   @override
@@ -74,6 +91,37 @@ class _SplashScreenState extends State<SplashScreen>
   Widget build(BuildContext context) {
     if (!_showSplash) {
       return widget.child;
+    }
+
+    // Si hay un error durante la inicialización, mostrar pantalla de error
+    if (_hasError) {
+      final errorData = ErrorFormatter.format(_error, showDetails: false);
+      return Scaffold(
+        body: Container(
+          decoration: const BoxDecoration(
+            gradient: LinearGradient(
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+              colors: [
+                Color(0xFF0A0E27),
+                Color(0xFF1E2749),
+              ],
+            ),
+          ),
+          child: ErrorMessageWidget(
+            title: errorData.title,
+            message: errorData.message,
+            onRetry: () {
+              setState(() {
+                _hasError = false;
+                _error = null;
+                _showSplash = true;
+              });
+              _initializeApp();
+            },
+          ),
+        ),
+      );
     }
 
     return Scaffold(

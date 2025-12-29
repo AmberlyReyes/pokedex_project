@@ -10,6 +10,8 @@ import '../../data/providers/pokemon_providers.dart';
 import '../widgets/animated_list_item.dart';
 import '../widgets/page_transitions.dart';
 import '../widgets/shimmer_loading.dart';
+import '../widgets/error_widget.dart';
+import '../../data/helpers/error_formatter.dart';
 import 'pokemon_detail_screen.dart';
 import 'favorites_screen.dart';
 import 'pokearth_map_screen.dart';
@@ -164,12 +166,28 @@ class _PokemonListScreenState extends ConsumerState<PokemonListScreen> {
       ),
       body: pokemonListAsync.when(
         loading: () => const ShimmerLoading(itemCount: 15),
-        error: (err, stack) => Center(child: Text('${l10n.error}: $err')),
+        error: (err, stack) {
+          final errorData = ErrorFormatter.format(err, showDetails: false);
+          return ErrorMessageWidget(
+            title: errorData.title,
+            message: errorData.message,
+            onRetry: () => ref.read(pokemonListProvider.notifier).refreshPokemons(),
+          );
+        },
         data: (allPokemons) {
           // La UI ahora se construye a partir de `_filtered`
           // que se actualiza con la búsqueda y los datos del provider.
           if (_filtered.isEmpty && _searchController.text.isNotEmpty) {
-            return Center(child: Text(l10n.noResults));
+            return ErrorMessageWidget(
+              title: l10n.noResults,
+              message: 'No se encontraron Pokémon con "${_searchController.text}".\nIntenta con otro término de búsqueda.',
+              icon: Icons.search_off,
+              iconColor: Colors.orange[400],
+              onRetry: () {
+                _searchController.clear();
+                ref.read(pokemonListProvider.notifier).refreshPokemons();
+              },
+            );
           }
           
           final notifier = ref.watch(pokemonListProvider.notifier);

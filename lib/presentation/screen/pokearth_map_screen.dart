@@ -3,6 +3,8 @@
 import 'package:flutter/material.dart';
 import '../../data/mapa/pokearth_map_parser.dart';
 import '../../data/providers/pokemon_providers.dart';
+import '../../data/helpers/error_formatter.dart';
+import '../widgets/error_widget.dart';
 import 'pokemon_list_screen.dart';
 import 'favorites_screen.dart';
 
@@ -90,8 +92,24 @@ class _PokearthMapScreenState extends State<PokearthMapScreen> {
             }
 
             if (snapshot.hasError) {
-              return Center(
-                child: Text('Error al cargar: ${snapshot.error}'),
+              final errorData = ErrorFormatter.format(snapshot.error, showDetails: false);
+              return Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(Icons.error_outline, color: Colors.red[400], size: 48),
+                  const SizedBox(height: 16),
+                  Text(
+                    errorData.title,
+                    style: const TextStyle(fontWeight: FontWeight.bold, fontSize: 16),
+                    textAlign: TextAlign.center,
+                  ),
+                  const SizedBox(height: 8),
+                  Text(
+                    errorData.message,
+                    style: const TextStyle(fontSize: 14),
+                    textAlign: TextAlign.center,
+                  ),
+                ],
               );
             }
 
@@ -224,8 +242,15 @@ class _PokearthMapScreenState extends State<PokearthMapScreen> {
           }
 
           if (snapshot.hasError) {
-            return Center(
-              child: Text('Error al cargar áreas: ${snapshot.error}'),
+            final errorData = ErrorFormatter.format(snapshot.error, showDetails: false);
+            return ErrorMessageWidget(
+              title: errorData.title,
+              message: errorData.message,
+              onRetry: () {
+                setState(() {
+                  _areas = PokearthMap.loadAreas();
+                });
+              },
             );
           }
 

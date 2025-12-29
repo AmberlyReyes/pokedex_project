@@ -7,6 +7,7 @@ enum GameStatus {
   playing,
   revealed,
   gameOver,
+  error,
 }
 
 class TriviaState extends Equatable {
@@ -21,6 +22,7 @@ class TriviaState extends Equatable {
   final String? selectedAnswer;
   final int lives;
   final List<String> achievements;
+  final String? errorMessage;
 
   const TriviaState({
     this.currentPokemon,
@@ -34,6 +36,7 @@ class TriviaState extends Equatable {
     this.selectedAnswer,
     this.lives = 5,
     this.achievements = const [],
+    this.errorMessage,
   });
 
   TriviaState copyWith({
@@ -48,6 +51,7 @@ class TriviaState extends Equatable {
     String? selectedAnswer,
     int? lives,
     List<String>? achievements,
+    String? errorMessage,
   }) {
     return TriviaState(
       currentPokemon: currentPokemon ?? this.currentPokemon,
@@ -61,6 +65,7 @@ class TriviaState extends Equatable {
       selectedAnswer: selectedAnswer ?? this.selectedAnswer,
       lives: lives ?? this.lives,
       achievements: achievements ?? this.achievements,
+      errorMessage: errorMessage ?? this.errorMessage,
     );
   }
 
@@ -77,5 +82,6 @@ class TriviaState extends Equatable {
         selectedAnswer,
         lives,
         achievements,
+        errorMessage,
       ];
 }

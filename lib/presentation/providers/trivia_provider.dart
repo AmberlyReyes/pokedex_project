@@ -88,6 +88,8 @@ class TriviaNotifier extends StateNotifier<TriviaState> {
 
       // Fetch los 4 Pokémon
       final pokemonList = <PokemonListItem>[];
+      int failedAttempts = 0;
+      
       for (final id in randomIds) {
         try {
           final pokemon = await PokeApi.searchPokemonById(id);
@@ -95,14 +97,17 @@ class TriviaNotifier extends StateNotifier<TriviaState> {
             pokemonList.add(pokemon);
           }
         } catch (e) {
-          // Skip if error
+          failedAttempts++;
+          // Si fallan todos, es probable que no haya internet
+          if (failedAttempts >= randomIds.length) {
+            throw Exception('No se pudo conectar al servidor. Verifica tu conexión a internet.');
+          }
         }
       }
 
       if (pokemonList.length < 3) {
-        // No hay suficientes Pokémon, reintentar
-        await _loadNextQuestion();
-        return;
+        // Si no hay suficientes Pokémon después de intentar, es un error de red
+        throw Exception('No se pudo cargar suficientes Pokémon. Verifica tu conexión a internet.');
       }
 
       // Seleccionar uno como correcto
@@ -122,7 +127,10 @@ class TriviaNotifier extends StateNotifier<TriviaState> {
 
       _startTimer();
     } catch (e) {
-      state = state.copyWith(status: GameStatus.gameOver);
+      state = state.copyWith(
+        status: GameStatus.error,
+        errorMessage: e.toString(),
+      );
     }
   }
 
