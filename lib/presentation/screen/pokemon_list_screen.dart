@@ -13,8 +13,6 @@ import '../widgets/shimmer_loading.dart';
 import '../widgets/error_widget.dart';
 import '../../data/helpers/error_formatter.dart';
 import 'pokemon_detail_screen.dart';
-import 'favorites_screen.dart';
-import 'pokearth_map_screen.dart';
 import '../../l10n/app_localizations.dart';
 
 
@@ -158,9 +156,13 @@ class _PokemonListScreenState extends ConsumerState<PokemonListScreen> {
           ),
         ),
         actions: [
-          IconButton(
-            icon: const Icon(Icons.filter_list, color: Colors.white),
-            onPressed: _openFilters,
+          Semantics(
+            label: 'Abrir filtros de Pokémon',
+            button: true,
+            child: IconButton(
+              icon: const Icon(Icons.filter_list, color: Colors.white),
+              onPressed: _openFilters,
+            ),
           ),
         ],
       ),

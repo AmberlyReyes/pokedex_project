@@ -5,7 +5,6 @@ import '../../domain/models/trivia_state.dart';
 import '../providers/trivia_provider.dart';
 import '../theme/app_theme.dart';
 import '../widgets/error_widget.dart';
-import '../../data/helpers/error_formatter.dart';
 import '../../l10n/app_localizations.dart';
 
 class TriviaScreen extends ConsumerWidget {
@@ -115,21 +114,25 @@ class TriviaScreen extends ConsumerWidget {
               textAlign: TextAlign.center,
             ),
             const SizedBox(height: 30),
-            ElevatedButton(
-              onPressed: () => ref.read(triviaProvider.notifier).startGame(),
-              style: ElevatedButton.styleFrom(
-                backgroundColor: AppTheme.secondaryColor,
-                padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 16),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(25),
+            Semantics(
+              label: 'Iniciar juego de trivia Pokémon',
+              button: true,
+              child: ElevatedButton(
+                onPressed: () => ref.read(triviaProvider.notifier).startGame(),
+                style: ElevatedButton.styleFrom(
+                  backgroundColor: AppTheme.secondaryColor,
+                  padding: const EdgeInsets.symmetric(horizontal: 50, vertical: 16),
+                  shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(25),
+                  ),
                 ),
-              ),
-              child: Text(
-                l10n.play,
-                style: GoogleFonts.nunito(
-                  fontSize: 18,
-                  fontWeight: FontWeight.bold,
-                  color: Colors.white,
+                child: Text(
+                  l10n.play,
+                  style: GoogleFonts.nunito(
+                    fontSize: 18,
+                    fontWeight: FontWeight.bold,
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
@@ -169,26 +172,34 @@ class TriviaScreen extends ConsumerWidget {
                   ),
                   const SizedBox(height: 4),
                   // Indicador de vidas (corazones)
-                  Row(
-                    children: List.generate(5, (index) {
-                      return Padding(
-                        padding: const EdgeInsets.only(right: 4),
-                        child: Icon(
-                          index < state.lives ? Icons.favorite : Icons.favorite_border,
-                          color: index < state.lives ? Colors.red : Colors.white38,
-                          size: 18,
-                        ),
-                      );
-                    }),
+                  Semantics(
+                    label: 'Vidas restantes: ${state.lives} de 5',
+                    readOnly: true,
+                    child: Row(
+                      children: List.generate(5, (index) {
+                        return Padding(
+                          padding: const EdgeInsets.only(right: 4),
+                          child: Icon(
+                            index < state.lives ? Icons.favorite : Icons.favorite_border,
+                            color: index < state.lives ? Colors.red : Colors.white38,
+                            size: 18,
+                          ),
+                        );
+                      }),
+                    ),
                   ),
                 ],
               ),
-              Text(
-                '${l10n.points}: ${state.score}',
-                style: GoogleFonts.nunito(
-                  fontSize: 16,
-                  color: AppTheme.tertiaryColor,
-                  fontWeight: FontWeight.bold,
+              Semantics(
+                label: 'Puntuación actual: ${state.score} puntos',
+                readOnly: true,
+                child: Text(
+                  '${l10n.points}: ${state.score}',
+                  style: GoogleFonts.nunito(
+                    fontSize: 16,
+                    color: AppTheme.tertiaryColor,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
               ),
             ],
@@ -196,70 +207,80 @@ class TriviaScreen extends ConsumerWidget {
           const SizedBox(height: 12),
 
           // Timer Progress
-          Column(
-            children: [
-              Text(
-                '${l10n.time}: ${state.timeLeft}s',
-                style: GoogleFonts.nunito(
-                  fontSize: 13,
-                  color: state.timeLeft <= 5 ? Colors.red : Colors.white,
-                  fontWeight: FontWeight.bold,
+          Semantics(
+            label: 'Tiempo restante: ${state.timeLeft} segundos',
+            liveRegion: true,
+            child: Column(
+              children: [
+                Text(
+                  '${l10n.time}: ${state.timeLeft}s',
+                  style: GoogleFonts.nunito(
+                    fontSize: 13,
+                    color: state.timeLeft <= 5 ? Colors.red : Colors.white,
+                    fontWeight: FontWeight.bold,
+                  ),
                 ),
-              ),
-              const SizedBox(height: 6),
-              LinearProgressIndicator(
-                value: state.timeLeft / 15,
-                backgroundColor: Colors.white24,
-                valueColor: AlwaysStoppedAnimation<Color>(
-                  state.timeLeft <= 5 ? Colors.red : AppTheme.primaryColor,
+                const SizedBox(height: 6),
+                LinearProgressIndicator(
+                  value: state.timeLeft / 15,
+                  backgroundColor: Colors.white24,
+                  valueColor: AlwaysStoppedAnimation<Color>(
+                    state.timeLeft <= 5 ? Colors.red : AppTheme.primaryColor,
+                  ),
+                  minHeight: 6,
+                  borderRadius: BorderRadius.circular(3),
                 ),
-                minHeight: 6,
-                borderRadius: BorderRadius.circular(3),
-              ),
-            ],
+              ],
+            ),
           ),
           const SizedBox(height: 16),
 
           // Pokemon Image (silueta o revelado)
-          Container(
-            height: 200,
-            width: 200,
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: AppTheme.surfaceColor,
-              borderRadius: BorderRadius.circular(16),
-              border: Border.all(
-                color: isRevealed
-                    ? (state.isCorrect ? Colors.green : Colors.red)
-                    : AppTheme.primaryColor.withOpacity(0.3),
-                width: 2,
+          Semantics(
+            label: isRevealed 
+                ? 'Pokémon revelado: ${pokemon.name}' 
+                : 'Silueta de Pokémon oculto. Adivina quién es',
+            image: true,
+            child: Container(
+              height: 200,
+              width: 200,
+              padding: const EdgeInsets.all(16),
+              decoration: BoxDecoration(
+                color: AppTheme.surfaceColor,
+                borderRadius: BorderRadius.circular(16),
+                border: Border.all(
+                  color: isRevealed
+                      ? (state.isCorrect ? Colors.green : Colors.red)
+                      : AppTheme.primaryColor.withOpacity(0.3),
+                  width: 2,
+                ),
               ),
-            ),
-            child: isRevealed
-                ? Image.network(
-                    pokemon.imageUrl,
-                    fit: BoxFit.contain,
-                    errorBuilder: (_, __, ___) => const Icon(
-                      Icons.error_outline,
-                      size: 60,
-                      color: Colors.white54,
-                    ),
-                  )
-                : ColorFiltered(
-                    colorFilter: const ColorFilter.mode(
-                      Colors.black,
-                      BlendMode.srcIn,
-                    ),
-                    child: Image.network(
+              child: isRevealed
+                  ? Image.network(
                       pokemon.imageUrl,
                       fit: BoxFit.contain,
                       errorBuilder: (_, __, ___) => const Icon(
                         Icons.error_outline,
                         size: 60,
-                        color: Colors.black,
+                        color: Colors.white54,
+                      ),
+                    )
+                  : ColorFiltered(
+                      colorFilter: const ColorFilter.mode(
+                        Colors.black,
+                        BlendMode.srcIn,
+                      ),
+                      child: Image.network(
+                        pokemon.imageUrl,
+                        fit: BoxFit.contain,
+                        errorBuilder: (_, __, ___) => const Icon(
+                          Icons.error_outline,
+                          size: 60,
+                          color: Colors.black,
+                        ),
                       ),
                     ),
-                  ),
+            ),
           ),
           const SizedBox(height: 16),
 
@@ -305,26 +326,34 @@ class TriviaScreen extends ConsumerWidget {
 
                 return Padding(
                   padding: const EdgeInsets.only(bottom: 10),
-                  child: SizedBox(
-                    width: double.infinity,
-                    height: 48,
-                    child: ElevatedButton(
-                      onPressed: isRevealed
-                          ? null
-                          : () => ref.read(triviaProvider.notifier).checkAnswer(option),
-                      style: ElevatedButton.styleFrom(
-                        backgroundColor: buttonColor,
-                        disabledBackgroundColor: buttonColor,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(12),
+                  child: Semantics(
+                    label: 'Opción: $option',
+                    button: true,
+                    enabled: !isRevealed,
+                    hint: isRevealed 
+                        ? (isCorrectOption ? 'Respuesta correcta' : (isSelected ? 'Tu respuesta incorrecta' : ''))
+                        : 'Toca para seleccionar esta opción',
+                    child: SizedBox(
+                      width: double.infinity,
+                      height: 48,
+                      child: ElevatedButton(
+                        onPressed: isRevealed
+                            ? null
+                            : () => ref.read(triviaProvider.notifier).checkAnswer(option),
+                        style: ElevatedButton.styleFrom(
+                          backgroundColor: buttonColor,
+                          disabledBackgroundColor: buttonColor,
+                          shape: RoundedRectangleBorder(
+                            borderRadius: BorderRadius.circular(12),
+                          ),
                         ),
-                      ),
-                      child: Text(
-                        option,
-                        style: GoogleFonts.nunito(
-                          fontSize: 15,
-                          fontWeight: FontWeight.bold,
-                          color: Colors.white,
+                        child: Text(
+                          option,
+                          style: GoogleFonts.nunito(
+                            fontSize: 15,
+                            fontWeight: FontWeight.bold,
+                            color: Colors.white,
+                          ),
                         ),
                       ),
                     ),
@@ -410,39 +439,47 @@ class TriviaScreen extends ConsumerWidget {
             Row(
               children: [
                 Expanded(
-                  child: ElevatedButton(
-                    onPressed: () => ref.read(triviaProvider.notifier).startGame(),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppTheme.secondaryColor,
-                      padding: const EdgeInsets.symmetric(vertical: 16),
-                      shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(25),
+                  child: Semantics(
+                    label: 'Jugar de nuevo',
+                    button: true,
+                    child: ElevatedButton(
+                      onPressed: () => ref.read(triviaProvider.notifier).startGame(),
+                      style: ElevatedButton.styleFrom(
+                        backgroundColor: AppTheme.secondaryColor,
+                        padding: const EdgeInsets.symmetric(vertical: 16),
+                        shape: RoundedRectangleBorder(
+                          borderRadius: BorderRadius.circular(25),
+                        ),
                       ),
-                    ),
-                    child: Text(
-                      l10n.playAgain,
-                      style: GoogleFonts.nunito(
-                        fontSize: 15,
-                        fontWeight: FontWeight.bold,
-                        color: Colors.white,
+                      child: Text(
+                        l10n.playAgain,
+                        style: GoogleFonts.nunito(
+                          fontSize: 15,
+                          fontWeight: FontWeight.bold,
+                          color: Colors.white,
+                        ),
                       ),
                     ),
                   ),
                 ),
                 const SizedBox(width: 12),
-                OutlinedButton(
-                  onPressed: () => Navigator.pop(context),
-                  style: OutlinedButton.styleFrom(
-                    side: const BorderSide(color: AppTheme.primaryColor, width: 2),
-                    padding: const EdgeInsets.all(16),
-                    shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(25),
+                Semantics(
+                  label: 'Volver al menú principal',
+                  button: true,
+                  child: OutlinedButton(
+                    onPressed: () => Navigator.pop(context),
+                    style: OutlinedButton.styleFrom(
+                      side: const BorderSide(color: AppTheme.primaryColor, width: 2),
+                      padding: const EdgeInsets.all(16),
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(25),
+                      ),
                     ),
-                  ),
-                  child: const Icon(
-                    Icons.home,
-                    color: AppTheme.primaryColor,
-                    size: 24,
+                    child: const Icon(
+                      Icons.home,
+                      color: AppTheme.primaryColor,
+                      size: 24,
+                    ),
                   ),
                 ),
               ],

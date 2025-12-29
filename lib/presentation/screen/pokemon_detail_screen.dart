@@ -271,26 +271,32 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
                     ),
       floatingActionButton: _loading || _error != null || _detail == null
           ? null
-          : FloatingActionButton(
-              onPressed: () async {
-                setState(() {
-                  _detail!.toggleFavorite();
-                });
+          : Semantics(
+              label: _detail!.isFavorite 
+                  ? 'Quitar de favoritos' 
+                  : 'Añadir a favoritos',
+              button: true,
+              child: FloatingActionButton(
+                onPressed: () async {
+                  setState(() {
+                    _detail!.toggleFavorite();
+                  });
 
-                // Guardar o eliminar en Hive
-                final box = await Hive.openBox<PokemonDetail>('favorites');
-                if (_detail!.isFavorite) {
-                  box.put(_detail!.id, _detail!);
-                } else {
-                  box.delete(_detail!.id);
-                }
-              },
-              backgroundColor: _detail!.isFavorite
-                  ? Colors.red
-                  : Theme.of(context).colorScheme.primary,
-              child: Icon(
-                _detail!.isFavorite ? Icons.favorite : Icons.favorite_border,
-                color: Colors.white,
+                  // Guardar o eliminar en Hive
+                  final box = await Hive.openBox<PokemonDetail>('favorites');
+                  if (_detail!.isFavorite) {
+                    box.put(_detail!.id, _detail!);
+                  } else {
+                    box.delete(_detail!.id);
+                  }
+                },
+                backgroundColor: _detail!.isFavorite
+                    ? Colors.red
+                    : Theme.of(context).colorScheme.primary,
+                child: Icon(
+                  _detail!.isFavorite ? Icons.favorite : Icons.favorite_border,
+                  color: Colors.white,
+                ),
               ),
             ),
     );
@@ -307,8 +313,12 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
             Hero(
               tag: 'pokemon_${_detail!.id}',
               child: Center(
-                child: _FloatingPokemonImage(
-                  imageUrl: _detail!.spriteUrl,
+                child: Semantics(
+                  label: 'Imagen de ${_capitalize(_detail!.name)}',
+                  image: true,
+                  child: _FloatingPokemonImage(
+                    imageUrl: _detail!.spriteUrl,
+                  ),
                 ),
               ),
             ),

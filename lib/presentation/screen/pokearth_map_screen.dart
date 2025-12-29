@@ -5,8 +5,6 @@ import '../../data/mapa/pokearth_map_parser.dart';
 import '../../data/providers/pokemon_providers.dart';
 import '../../data/helpers/error_formatter.dart';
 import '../widgets/error_widget.dart';
-import 'pokemon_list_screen.dart';
-import 'favorites_screen.dart';
 
 class PokearthMapScreen extends StatefulWidget {
   const PokearthMapScreen({super.key});
@@ -258,20 +256,24 @@ class _PokearthMapScreenState extends State<PokearthMapScreen> {
 
           return Stack(
             children: [
-              InteractiveViewer(
-                transformationController: _transformationController,
-                boundaryMargin: const EdgeInsets.all(100),
-                minScale: 1.0,
-                maxScale: 4.0,
-                panEnabled: _currentScale > 1.0, // Solo permitir pan si hay zoom
-                scaleEnabled: false, // Desabilitar zoom por gesto
-                child: GestureDetector(
-                  onTapDown: (details) => _onImageTap(details, areas),
-                  child: Center(
-                    child: Image.asset(
-                      'assets/images/pokearth.png',
-                      fit: BoxFit.contain,
-                      key: _imageKey,
+              Semantics(
+                label: 'Mapa interactivo de Pokéarth. Toca las regiones para ver Pokémon disponibles',
+                button: true,
+                child: InteractiveViewer(
+                  transformationController: _transformationController,
+                  boundaryMargin: const EdgeInsets.all(100),
+                  minScale: 1.0,
+                  maxScale: 4.0,
+                  panEnabled: _currentScale > 1.0, // Solo permitir pan si hay zoom
+                  scaleEnabled: false, // Desabilitar zoom por gesto
+                  child: GestureDetector(
+                    onTapDown: (details) => _onImageTap(details, areas),
+                    child: Center(
+                      child: Image.asset(
+                        'assets/images/pokearth.png',
+                        fit: BoxFit.contain,
+                        key: _imageKey,
+                      ),
                     ),
                   ),
                 ),
@@ -280,20 +282,28 @@ class _PokearthMapScreenState extends State<PokearthMapScreen> {
               Positioned(
                 bottom: 80,
                 right: 16,
-                child: FloatingActionButton(
-                  onPressed: _zoomIn,
-                  mini: true,
-                  child: const Icon(Icons.zoom_in),
+                child: Semantics(
+                  label: 'Acercar mapa',
+                  button: true,
+                  child: FloatingActionButton(
+                    onPressed: _zoomIn,
+                    mini: true,
+                    child: const Icon(Icons.zoom_in),
+                  ),
                 ),
               ),
               // Botón de zoom out (arriba del anterior)
               Positioned(
                 bottom: 20,
                 right: 16,
-                child: FloatingActionButton(
-                  onPressed: _zoomOut,
-                  mini: true,
-                  child: const Icon(Icons.zoom_out),
+                child: Semantics(
+                  label: 'Alejar mapa',
+                  button: true,
+                  child: FloatingActionButton(
+                    onPressed: _zoomOut,
+                    mini: true,
+                    child: const Icon(Icons.zoom_out),
+                  ),
                 ),
               ),
               // Botón de reset zoom
@@ -301,10 +311,14 @@ class _PokearthMapScreenState extends State<PokearthMapScreen> {
                 Positioned(
                   bottom: 140,
                   right: 16,
-                  child: FloatingActionButton(
-                    onPressed: _resetZoom,
-                    mini: true,
-                    child: const Icon(Icons.restart_alt),
+                  child: Semantics(
+                    label: 'Restablecer zoom',
+                    button: true,
+                    child: FloatingActionButton(
+                      onPressed: _resetZoom,
+                      mini: true,
+                      child: const Icon(Icons.restart_alt),
+                    ),
                   ),
                 ),
             ],

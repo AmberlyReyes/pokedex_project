@@ -4,8 +4,6 @@ import '../../l10n/app_localizations.dart';
 
 import '../../data/models/pokemon_detail.dart';
 import 'pokemon_detail_screen.dart';
-import 'pokemon_list_screen.dart';
-import 'pokearth_map_screen.dart';
 
 class FavoritesScreen extends StatefulWidget {
   const FavoritesScreen({super.key});

@@ -11,13 +11,13 @@ class ErrorMessageWidget extends StatelessWidget {
   final Color? iconColor;
 
   const ErrorMessageWidget({
-    Key? key,
+    super.key,
     required this.title,
     required this.message,
     required this.onRetry,
     this.icon = Icons.error_outline,
     this.iconColor,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {

@@ -12,14 +12,14 @@ class ErrorScreen extends StatelessWidget {
   final IconData icon;
 
   const ErrorScreen({
-    Key? key,
+    super.key,
     required this.title,
     required this.message,
     required this.onRetry,
     this.details,
     this.onHome,
     this.icon = Icons.error_outline,
-  }) : super(key: key);
+  });
 
   @override
   Widget build(BuildContext context) {
