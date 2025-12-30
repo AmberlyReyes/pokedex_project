@@ -1,15 +1,18 @@
+// lib/data/datasources/poke_api.dart
+// 100% GraphQL - Sin dependencias REST
+// Con sistema de cache para modo offline
+
 import 'package:graphql_flutter/graphql_flutter.dart';
-import 'package:http/http.dart' as http;
-import 'dart:convert';
+import 'package:hive/hive.dart';
 import '../models/pokemon_list_item.dart';
 import '../models/pokemon_detail.dart';
 import '../models/pokemon_evolution.dart';
 import '../models/pokemon_encounter.dart';
 import '../models/pokemon_variant.dart';
+import '../models/cached_pokemon_list.dart';
 
 class PokeApi {
   static const _graphqlEndpoint = 'https://beta.pokeapi.co/graphql/v1beta';
-  static const _restEndpoint = 'https://pokeapi.co/api/v2';
   static late GraphQLClient _client;
 
   /// Initialize the GraphQL client (call this once on app startup)
@@ -21,17 +24,39 @@ class PokeApi {
     );
   }
 
+  // ============================================================
+  // 1. LISTADO CON PAGINACIÓN EFICIENTE
+  // ============================================================
+  
   /// Fetch the full list of pokemons using GraphQL with offset/limit pagination
+  /// Solo trae pokemon default (is_default: true) para evitar duplicados
+  /// CON SISTEMA DE CACHE PARA MODO OFFLINE
   static Future<List<PokemonListItem>> fetchAllPokemons({int limit = 50, int offset = 0}) async {
+    // 1. Intentar cargar desde cache primero
+    try {
+      final cacheBox = await Hive.openBox<CachedPokemonList>('pokemon_cache');
+      final cacheKey = 'list_$offset\_$limit';
+      final cached = cacheBox.get(cacheKey);
+      
+      if (cached != null && !cached.isExpired()) {
+        print('📦 Usando lista cacheada (offset: $offset, limit: $limit)');
+        return cached.pokemons;
+      }
+    } catch (e) {
+      print('⚠️ Error leyendo cache: $e');
+    }
+
+    // 2. Si no hay cache o está expirado, consultar API
     const query = '''
       query GetPokemons(\$limit: Int!, \$offset: Int!) {
-        pokemon_v2_pokemonspecies(limit: \$limit, offset: \$offset, order_by: {id: asc}) {
+        pokemon_v2_pokemon(
+          limit: \$limit, 
+          offset: \$offset, 
+          order_by: {id: asc},
+          where: {is_default: {_eq: true}}
+        ) {
           id
           name
-          pokemon_v2_pokemons {
-            id
-            name
-          }
         }
       }
     ''';
@@ -40,41 +65,75 @@ class PokeApi {
       final result = await _client.query(
         QueryOptions(
           document: gql(query),
-          variables: {
-            'limit': limit,
-            'offset': offset,
-          },
+          variables: {'limit': limit, 'offset': offset},
+          fetchPolicy: FetchPolicy.networkOnly, // Siempre red para datos frescos
         ),
       );
 
       if (result.hasException) {
+        print('❌ Error GraphQL: ${result.exception}');
+        // Si falla, intentar devolver cache expirado como fallback
+        try {
+          final cacheBox = await Hive.openBox<CachedPokemonList>('pokemon_cache');
+          final cacheKey = 'list_$offset\_$limit';
+          final cached = cacheBox.get(cacheKey);
+          if (cached != null) {
+            print('🔄 Usando cache expirado como fallback');
+            return cached.pokemons;
+          }
+        } catch (_) {}
+        
         throw Exception('Error fetching pokemon list: ${result.exception}');
       }
 
-      final species = result.data?['pokemon_v2_pokemonspecies'] as List<dynamic>? ?? [];
-      return species.map((s) {
-        final speciesData = s as Map<String, dynamic>;
-        final id = speciesData['id'] as int;
-        final pokemons = speciesData['pokemon_v2_pokemons'] as List<dynamic>? ?? [];
+      final list = result.data?['pokemon_v2_pokemon'] as List<dynamic>? ?? [];
+      final pokemons = list.map((data) {
+        final pokemon = data as Map<String, dynamic>;
+        final id = pokemon['id'] as int;
+        return PokemonListItem(
+          id: id,
+          name: pokemon['name'] as String,
+          imageUrl: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/$id.png',
+        );
+      }).toList();
 
-        if (pokemons.isNotEmpty) {
-          final pokemon = pokemons[0] as Map<String, dynamic>;
-          final pokemonName = pokemon['name'] as String;
-          return PokemonListItem(
-            name: pokemonName,
-            id: id,
-            imageUrl:
-                'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/$id.png',
-          );
-        }
-        return null;
-      }).whereType<PokemonListItem>().toList();
+      // 3. Guardar en cache
+      try {
+        final cacheBox = await Hive.openBox<CachedPokemonList>('pokemon_cache');
+        final cacheKey = 'list_$offset\_$limit';
+        await cacheBox.put(cacheKey, CachedPokemonList(
+          pokemons: pokemons,
+          cachedAt: DateTime.now(),
+          offset: offset,
+          limit: limit,
+        ));
+        print('💾 Lista guardada en cache');
+      } catch (e) {
+        print('⚠️ Error guardando cache: $e');
+      }
+
+      return pokemons;
     } catch (e) {
+      // Si falla TODO, intentar devolver CUALQUIER cache como último recurso
+      try {
+        final cacheBox = await Hive.openBox<CachedPokemonList>('pokemon_cache');
+        final cacheKey = 'list_$offset\_$limit';
+        final cached = cacheBox.get(cacheKey);
+        if (cached != null) {
+          print('🆘 Usando cache como último recurso');
+          return cached.pokemons;
+        }
+      } catch (_) {}
+      
       throw Exception('Error fetching pokemon list: $e');
     }
   }
 
-  /// Fetch detailed info for a single pokemon by id using GraphQL
+  // ============================================================
+  // 2. SUPER QUERY - DETALLE COMPLETO EN UNA SOLA LLAMADA
+  //    Incluye: Stats, Tipos, Habilidades, Movimientos, Evoluciones, Variantes
+  // ============================================================
+  
   static Future<PokemonDetail> fetchPokemonDetail(int id) async {
     const query = '''
       query GetPokemonDetail(\$id: Int!) {
@@ -107,12 +166,12 @@ class PokeApi {
             is_hidden
             pokemon_v2_ability {
               name
-              pokemon_v2_abilityeffecttexts {
+              pokemon_v2_abilityeffecttexts(where: {language_id: {_eq: 9}}) {
                 effect
               }
             }
           }
-          pokemon_v2_pokemonmoves {
+          pokemon_v2_pokemonmoves(distinct_on: move_id, order_by: {move_id: asc}) {
             level
             pokemon_v2_movelearnmethod {
               name
@@ -131,6 +190,49 @@ class PokeApi {
                 name
               }
             }
+            # Flavor text (descripción Pokédex)
+            pokemon_v2_pokemonspeciesflavortexts(
+              where: {language_id: {_eq: 9}}, 
+              limit: 1,
+              order_by: {version_id: desc}
+            ) {
+              flavor_text
+            }
+            # CADENA EVOLUTIVA (Anidada)
+            pokemon_v2_evolutionchain {
+              pokemon_v2_pokemonspecies(order_by: {order: asc}) {
+                id
+                name
+                pokemon_v2_pokemonevolutions {
+                  min_level
+                  time_of_day
+                  pokemon_v2_evolutiontrigger {
+                    name
+                  }
+                  pokemon_v2_item {
+                    name
+                  }
+                  pokemon_v2_location {
+                    name
+                  }
+                }
+              }
+            }
+            # VARIANTES / MEGAS (Hermanos de especie, excluyendo default)
+            pokemon_v2_pokemons(where: {is_default: {_eq: false}}) {
+              id
+              name
+              pokemon_v2_pokemonforms {
+                form_name
+                is_mega
+                is_battle_only
+              }
+              pokemon_v2_pokemontypes {
+                pokemon_v2_type {
+                  name
+                }
+              }
+            }
           }
         }
       }
@@ -141,6 +243,7 @@ class PokeApi {
         QueryOptions(
           document: gql(query),
           variables: {'id': id},
+          fetchPolicy: FetchPolicy.cacheFirst,
         ),
       );
 
@@ -160,13 +263,16 @@ class PokeApi {
     }
   }
 
-  /// Fetch the evolution chain with detailed trigger information
+  // ============================================================
+  // 3. CADENA EVOLUTIVA (Separada para casos donde solo se necesita esto)
+  // ============================================================
+  
   static Future<List<PokemonEvolution>> fetchEvolutionChain(int pokemonId) async {
     const query = '''
       query GetEvolutionChain(\$pokemonId: Int!) {
         pokemon_v2_pokemonspecies(where: {id: {_eq: \$pokemonId}}) {
           pokemon_v2_evolutionchain {
-            pokemon_v2_pokemonspecies(order_by: {id: asc}) {
+            pokemon_v2_pokemonspecies(order_by: {order: asc}) {
               id
               name
               pokemon_v2_pokemonevolutions {
@@ -224,6 +330,239 @@ class PokeApi {
     }
   }
 
+  // ============================================================
+  // 4. VARIANTES / FORMAS (Megas, Regionales, Gigantamax)
+  //  
+  // ============================================================
+  
+  static Future<List<PokemonVariant>> fetchPokemonVariants(String pokemonName) async {
+    const query = '''
+      query GetPokemonVariants(\$name: String!) {
+        pokemon_v2_pokemonspecies(where: {name: {_eq: \$name}}) {
+          pokemon_v2_pokemons(where: {is_default: {_eq: false}}) {
+            id
+            name
+            pokemon_v2_pokemonforms {
+              form_name
+              is_mega
+              is_battle_only
+            }
+            pokemon_v2_pokemontypes {
+              pokemon_v2_type {
+                name
+              }
+            }
+          }
+        }
+      }
+    ''';
+
+    try {
+      final result = await _client.query(
+        QueryOptions(
+          document: gql(query),
+          variables: {'name': pokemonName.toLowerCase()},
+        ),
+      );
+
+      if (result.hasException) {
+        return [];
+      }
+
+      final species = result.data?['pokemon_v2_pokemonspecies'] as List<dynamic>? ?? [];
+      if (species.isEmpty) return [];
+
+      final variants = <PokemonVariant>[];
+      final pokemons = (species[0] as Map<String, dynamic>)['pokemon_v2_pokemons'] as List<dynamic>? ?? [];
+
+      for (final pokemonData in pokemons) {
+        final pokemon = pokemonData as Map<String, dynamic>;
+        final id = pokemon['id'] as int;
+        final name = pokemon['name'] as String;
+        
+        // Obtener form_name de pokemon_v2_pokemonforms
+        final forms = pokemon['pokemon_v2_pokemonforms'] as List<dynamic>? ?? [];
+        String formName = '';
+        bool isMega = false;
+        
+        if (forms.isNotEmpty) {
+          final form = forms[0] as Map<String, dynamic>;
+          formName = form['form_name'] as String? ?? '';
+          isMega = form['is_mega'] as bool? ?? false;
+        }
+        
+        // Determinar el tipo de variante
+        String variantType = _extractVariantType(name, formName, isMega);
+        
+        // Obtener tipos
+        final typesList = <String>[];
+        final types = pokemon['pokemon_v2_pokemontypes'] as List<dynamic>? ?? [];
+        for (final t in types) {
+          final typeName = (t as Map<String, dynamic>)['pokemon_v2_type']['name'] as String;
+          typesList.add(typeName);
+        }
+        
+        variants.add(PokemonVariant(
+          id: id,
+          name: name,
+          formName: formName.isEmpty ? name : formName,
+          imageUrl: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/$id.png',
+          variantType: variantType,
+          types: typesList.isNotEmpty ? typesList : ['unknown'],
+        ));
+      }
+
+      return variants;
+    } catch (e) {
+      return [];
+    }
+  }
+
+  // ============================================================
+  // 5. ENCUENTROS POR UBICACIÓN - 
+  //    Consulta directa a pokemon_v2_encounter
+  // ============================================================
+  
+  static Future<List<PokemonEncounter>> fetchPokemonByLocation(String locationName) async {
+    // Normalizar el nombre (remover región si existe, ej: "kanto/pallet-town" -> "pallet-town")
+    final parts = locationName.toLowerCase().split('/');
+    final cleanName = parts.length > 1 ? parts[1].replaceAll(' ', '-') : parts[0].replaceAll(' ', '-');
+    
+    print('🗺️ Buscando Pokémon en: $locationName (limpio: $cleanName)');
+    
+    // Paso 1: Obtener el ID de la ubicación AREA (más específico)
+    const locationAreaQuery = '''
+      query GetLocationArea(\$name: String!) {
+        pokemon_v2_locationarea(where: {name: {_ilike: \$name}}) {
+          id
+          name
+          location_id
+        }
+      }
+    ''';
+
+    try {
+      final locationResult = await _client.query(
+        QueryOptions(
+          document: gql(locationAreaQuery),
+          variables: {'name': '%$cleanName%'},
+        ),
+      );
+
+      if (locationResult.hasException) {
+        print('❌ Error en query: ${locationResult.exception}');
+        throw Exception('Error fetching location: ${locationResult.exception}');
+      }
+
+      final locationAreas = locationResult.data?['pokemon_v2_locationarea'] as List<dynamic>? ?? [];
+      if (locationAreas.isEmpty) {
+        print('⚠️ No se encontró el área: $cleanName');
+        return [];
+      }
+
+      final locationAreaId = (locationAreas[0] as Map<String, dynamic>)['id'] as int;
+      print('✅ Área encontrada ID: $locationAreaId');
+
+      // Paso 2: Obtener encuentros de esa área específica
+      const encounterQuery = '''
+        query GetEncounters(\$areaId: Int!) {
+          pokemon_v2_encounter(
+            where: {
+              location_area_id: {_eq: \$areaId}
+            },
+            distinct_on: pokemon_id,
+            order_by: {pokemon_id: asc}
+          ) {
+            pokemon_id
+            min_level
+            max_level
+            pokemon_v2_pokemon {
+              id
+              name
+            }
+            pokemon_v2_encounterslot {
+              rarity
+              pokemon_v2_encountermethod {
+                name
+              }
+            }
+            pokemon_v2_version {
+              name
+            }
+            pokemon_v2_locationarea {
+              name
+            }
+          }
+        }
+      ''';
+
+      final encounterResult = await _client.query(
+        QueryOptions(
+          document: gql(encounterQuery),
+          variables: {'areaId': locationAreaId},
+        ),
+      );
+
+      if (encounterResult.hasException) {
+        print('❌ Error en encounters: ${encounterResult.exception}');
+        return [];
+      }
+
+      final encounters = encounterResult.data?['pokemon_v2_encounter'] as List<dynamic>? ?? [];
+      print('📊 Encuentros encontrados: ${encounters.length}');
+      
+      // Agrupar por pokemon_id para evitar duplicados
+      final pokemonMap = <int, PokemonEncounter>{};
+      
+      for (final enc in encounters) {
+        final encounterData = enc as Map<String, dynamic>;
+        final pokemon = encounterData['pokemon_v2_pokemon'] as Map<String, dynamic>?;
+        
+        if (pokemon == null) continue;
+        
+        final id = pokemon['id'] as int;
+        final name = pokemon['name'] as String;
+        
+        // Si ya existe, no lo sobrescribimos (ya tenemos uno)
+        if (pokemonMap.containsKey(id)) continue;
+        
+        final minLevel = encounterData['min_level'] as int? ?? 0;
+        final maxLevel = encounterData['max_level'] as int? ?? 0;
+        
+        // Obtener método y rarity del slot
+        final slot = encounterData['pokemon_v2_encounterslot'] as Map<String, dynamic>?;
+        final rarity = slot?['rarity'] as int? ?? 0;
+        final methodData = slot?['pokemon_v2_encountermethod'] as Map<String, dynamic>?;
+        final method = methodData?['name'] as String? ?? 'unknown';
+        
+        final version = encounterData['pokemon_v2_version'] as Map<String, dynamic>?;
+        final versionName = version?['name'] as String? ?? 'unknown';
+        
+        pokemonMap[id] = PokemonEncounter(
+          id: id,
+          name: name,
+          imageUrl: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/$id.png',
+          chance: rarity,
+          minLevel: minLevel,
+          maxLevel: maxLevel,
+          method: method,
+          version: versionName,
+        );
+      }
+
+      final result = pokemonMap.values.toList()..sort((a, b) => a.id.compareTo(b.id));
+      print('🎯 Total de Pokémon únicos: ${result.length}');
+      return result;
+    } catch (e) {
+      print('💥 Error general: $e');
+      throw Exception('Error fetching pokemon by location: $e');
+    }
+  }
+
+  // ============================================================
+  // 6. FILTROS Y BÚSQUEDA
+  // ============================================================
+  
   /// Fetch pokemon names by type using GraphQL
   static Future<Set<String>> fetchPokemonNamesByType(String type) async {
     const query = '''
@@ -254,8 +593,7 @@ class PokeApi {
       final names = <String>{};
 
       for (final typeData in types) {
-        final pokemonTypes =
-            typeData['pokemon_v2_pokemontypes'] as List<dynamic>? ?? [];
+        final pokemonTypes = typeData['pokemon_v2_pokemontypes'] as List<dynamic>? ?? [];
         for (final pt in pokemonTypes) {
           final pokemon = pt['pokemon_v2_pokemon'] as Map<String, dynamic>?;
           if (pokemon != null) {
@@ -345,8 +683,7 @@ class PokeApi {
       final types = pokemon['pokemon_v2_pokemontypes'] as List<dynamic>? ?? [];
 
       return types
-          .map((t) =>
-              (t as Map<String, dynamic>)['pokemon_v2_type']['name'] as String)
+          .map((t) => (t as Map<String, dynamic>)['pokemon_v2_type']['name'] as String)
           .toList();
     } catch (e) {
       throw Exception('Error fetching pokemon types: $e');
@@ -356,9 +693,7 @@ class PokeApi {
   /// Fetch detailed stats for a Pokémon
   static Future<Map<String, dynamic>> fetchPokemonStats(int id) async {
     const query = '''
-      query GetPokemonStats(
-        \$id: Int!
-      ) {
+      query GetPokemonStats(\$id: Int!) {
         pokemon_v2_pokemon(where: {id: {_eq: \$id}}) {
           pokemon_v2_pokemonstats {
             base_stat
@@ -402,17 +737,24 @@ class PokeApi {
     }
   }
 
+  // ============================================================
+  // 7. BÚSQUEDA GLOBAL
+  // ============================================================
+  
   /// Search pokemon by name globally across all pokemons
   static Future<List<PokemonListItem>> searchPokemonByName(String query) async {
     const queryTemplate = '''
       query SearchPokemon(\$query: String!) {
-        pokemon_v2_pokemonspecies(where: {name: {_ilike: \$query}}, limit: 20, order_by: {id: asc}) {
+        pokemon_v2_pokemon(
+          where: {
+            name: {_ilike: \$query},
+            is_default: {_eq: true}
+          }, 
+          limit: 20, 
+          order_by: {id: asc}
+        ) {
           id
           name
-          pokemon_v2_pokemons {
-            id
-            name
-          }
         }
       }
     ''';
@@ -429,24 +771,16 @@ class PokeApi {
         throw Exception('Error searching pokemon: ${result.exception}');
       }
 
-      final species = result.data?['pokemon_v2_pokemonspecies'] as List<dynamic>? ?? [];
-      return species.map((s) {
-        final speciesData = s as Map<String, dynamic>;
-        final id = speciesData['id'] as int;
-        final pokemons = speciesData['pokemon_v2_pokemons'] as List<dynamic>? ?? [];
-
-        if (pokemons.isNotEmpty) {
-          final pokemon = pokemons[0] as Map<String, dynamic>;
-          final pokemonName = pokemon['name'] as String;
-          return PokemonListItem(
-            name: pokemonName,
-            id: id,
-            imageUrl:
-                'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/$id.png',
-          );
-        }
-        return null;
-      }).whereType<PokemonListItem>().toList();
+      final pokemons = result.data?['pokemon_v2_pokemon'] as List<dynamic>? ?? [];
+      return pokemons.map((p) {
+        final pokemon = p as Map<String, dynamic>;
+        final id = pokemon['id'] as int;
+        return PokemonListItem(
+          id: id,
+          name: pokemon['name'] as String,
+          imageUrl: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/$id.png',
+        );
+      }).toList();
     } catch (e) {
       throw Exception('Error searching pokemon: $e');
     }
@@ -456,13 +790,9 @@ class PokeApi {
   static Future<PokemonListItem?> searchPokemonById(int id) async {
     const query = '''
       query GetPokemonById(\$id: Int!) {
-        pokemon_v2_pokemonspecies(where: {id: {_eq: \$id}}) {
+        pokemon_v2_pokemon(where: {id: {_eq: \$id}, is_default: {_eq: true}}) {
           id
           name
-          pokemon_v2_pokemons {
-            id
-            name
-          }
         }
       }
     ''';
@@ -477,253 +807,43 @@ class PokeApi {
 
       if (result.hasException) return null;
 
-      final species = result.data?['pokemon_v2_pokemonspecies'] as List<dynamic>? ?? [];
-      if (species.isEmpty) return null;
+      final pokemons = result.data?['pokemon_v2_pokemon'] as List<dynamic>? ?? [];
+      if (pokemons.isEmpty) return null;
 
-      final speciesData = species[0] as Map<String, dynamic>;
-      final pokemons = speciesData['pokemon_v2_pokemons'] as List<dynamic>? ?? [];
-
-      if (pokemons.isNotEmpty) {
-        final pokemon = pokemons[0] as Map<String, dynamic>;
-        final pokemonName = pokemon['name'] as String;
-        return PokemonListItem(
-          name: pokemonName,
-          id: id,
-          imageUrl:
-              'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/$id.png',
-        );
-      }
-      return null;
+      final pokemon = pokemons[0] as Map<String, dynamic>;
+      return PokemonListItem(
+        id: pokemon['id'] as int,
+        name: pokemon['name'] as String,
+        imageUrl: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/$id.png',
+      );
     } catch (e) {
       return null;
     }
   }
 
-  /// Fetch pokemon encounters by location name
-  /// Extrae información detallada: chance, min/max level, method, version
-  static Future<List<PokemonEncounter>> fetchPokemonByLocation(String locationName) async {
-    try {
-      // Extraer solo la región (primera parte antes del /)
-      String region = locationName.contains('/') 
-          ? locationName.split('/').first 
-          : locationName;
-      
-      // Primera petición: obtener las áreas de la location
-      final locationUrl = '$_restEndpoint/location/${region.toLowerCase()}';
-      print('DEBUG POKE_API: locationName original: $locationName');
-      print('DEBUG POKE_API: región extraída: $region');
-      print('DEBUG POKE_API: Primera petición a: $locationUrl');
-      
-      final locationResponse = await http.get(Uri.parse(locationUrl));
-
-      print('DEBUG POKE_API: Status de respuesta: ${locationResponse.statusCode}');
-
-      if (locationResponse.statusCode != 200) {
-        throw Exception('Error fetching location: ${locationResponse.statusCode}');
-      }
-
-      final locationData = jsonDecode(locationResponse.body) as Map<String, dynamic>;
-      final areas = locationData['areas'] as List<dynamic>? ?? [];
-
-      print('DEBUG POKE_API: Áreas encontradas: ${areas.length}');
-
-      if (areas.isEmpty) {
-        return [];
-      }
-
-      final allPokemon = <String, PokemonEncounter>{}; // Map para evitar duplicados
-
-      // Para cada área, obtener los pokemon encounters
-      for (int i = 0; i < areas.length; i++) {
-        final area = areas[i];
-        final areaData = area as Map<String, dynamic>;
-        final areaUrl = areaData['url'] as String?;
-
-        print('DEBUG POKE_API: Área $i URL: $areaUrl');
-
-        if (areaUrl != null) {
-          try {
-            final areaResponse = await http.get(Uri.parse(areaUrl));
-
-            if (areaResponse.statusCode == 200) {
-              final areaDetailData = jsonDecode(areaResponse.body) as Map<String, dynamic>;
-              final pokemonEncounters = areaDetailData['pokemon_encounters'] as List<dynamic>? ?? [];
-
-              print('DEBUG POKE_API: Pokémon encontrados en esta área: ${pokemonEncounters.length}');
-
-              for (final encounter in pokemonEncounters) {
-                final encounterData = encounter as Map<String, dynamic>;
-                final pokemonData = encounterData['pokemon'] as Map<String, dynamic>?;
-                final versionDetails = encounterData['version_details'] as List<dynamic>? ?? [];
-
-                if (pokemonData != null && versionDetails.isNotEmpty) {
-                  final pokemonUrl = pokemonData['url'] as String?;
-                  final pokemonName = pokemonData['name'] as String?;
-
-                  if (pokemonUrl != null && pokemonName != null) {
-                    // Extraer el ID del URL
-                    final idMatch = RegExp(r'/pokemon/(\d+)/?$').firstMatch(pokemonUrl);
-                    if (idMatch != null) {
-                      final id = int.parse(idMatch.group(1)!);
-
-                      // Procesar detalles de versión
-                      for (final versionDetail in versionDetails) {
-                        final versionDetailData = versionDetail as Map<String, dynamic>;
-                        final version = versionDetailData['version'] as Map<String, dynamic>?;
-                        final versionName = version?['name'] as String? ?? 'unknown';
-                        
-                        final chance = versionDetailData['max_chance'] as int? ?? 0;
-                        
-                        final encounterDetails = versionDetailData['encounter_details'] as List<dynamic>? ?? [];
-                        
-                        if (encounterDetails.isNotEmpty) {
-                          final encounterDetail = encounterDetails[0] as Map<String, dynamic>;
-                          final method = (encounterDetail['method'] as Map<String, dynamic>?)?['name'] as String? ?? 'unknown';
-                          final minLevel = encounterDetail['min_level'] as int? ?? 0;
-                          final maxLevel = encounterDetail['max_level'] as int? ?? 0;
-
-                          final key = '$id-$versionName-$method';
-                          
-                          if (!allPokemon.containsKey(key)) {
-                            allPokemon[key] = PokemonEncounter(
-                              id: id,
-                              name: pokemonName,
-                              imageUrl: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/$id.png',
-                              chance: chance,
-                              minLevel: minLevel,
-                              maxLevel: maxLevel,
-                              method: method,
-                              version: versionName,
-                            );
-                          }
-                        }
-                      }
-                    }
-                  }
-                }
-              }
-            }
-          } catch (e) {
-            print('DEBUG POKE_API: Error en área: $e');
-            continue;
-          }
-        }
-      }
-
-      print('DEBUG POKE_API: Total de Pokémon encontrados: ${allPokemon.length}');
-      final result = allPokemon.values.toList()..sort((a, b) => a.id.compareTo(b.id));
-      return result;
-    } catch (e) {
-      print('DEBUG POKE_API: Error general: $e');
-      throw Exception('Error fetching pokemon by location: $e');
-    }
-  }
-
-  /// Fetch pokemon varieties (different forms) using REST API
-  /// Excludes the default variety (is_default: true)
-  static Future<List<PokemonVariant>> fetchPokemonVariants(String pokemonName) async {
-    try {
-      // First, get the species data using REST API
-      final speciesUrl = '$_restEndpoint/pokemon-species/$pokemonName';
-      print('DEBUG POKE_API: Fetching species from: $speciesUrl');
-      
-      final speciesResponse = await http.get(Uri.parse(speciesUrl));
-      
-      if (speciesResponse.statusCode != 200) {
-        print('DEBUG POKE_API: Species not found with status ${speciesResponse.statusCode}');
-        return [];
-      }
-
-      final speciesData = jsonDecode(speciesResponse.body) as Map<String, dynamic>;
-      final varieties = speciesData['varieties'] as List<dynamic>? ?? [];
-
-      print('DEBUG POKE_API: Found ${varieties.length} varieties for $pokemonName');
-
-      final variants = <PokemonVariant>[];
-
-      // Process each variety except the default one
-      for (final varietyData in varieties) {
-        final variety = varietyData as Map<String, dynamic>;
-        final isDefault = variety['is_default'] as bool? ?? false;
-        
-        // Skip the default variety
-        if (isDefault) {
-          print('DEBUG POKE_API: Skipping default variety');
-          continue;
-        }
-
-        final pokemonUrl = variety['pokemon']['url'] as String?;
-        
-        if (pokemonUrl != null) {
-          try {
-            // Fetch detailed data for this variety
-            final pokemonResponse = await http.get(Uri.parse(pokemonUrl));
-            
-            if (pokemonResponse.statusCode == 200) {
-              final pokemonData = jsonDecode(pokemonResponse.body) as Map<String, dynamic>;
-              
-              // Create a PokemonVariant from the variety data
-              final variantName = pokemonData['name'] as String? ?? '';
-              final id = pokemonData['id'] as int? ?? 0;
-              final imageUrl = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/$id.png';
-              
-              // Try to extract variant type from the name (e.g., "alola", "galar", "paldea")
-              String variantType = _extractVariantType(variantName);
-              
-              // Extract types from the variety
-              final typesList = <String>[];
-              final types = pokemonData['types'] as List<dynamic>? ?? [];
-              for (final t in types) {
-                final typeName = (t as Map<String, dynamic>)['type']['name'] as String;
-                typesList.add(typeName);
-              }
-              
-              final variant = PokemonVariant(
-                id: id,
-                name: variantName,
-                formName: variantName,
-                imageUrl: imageUrl,
-                variantType: variantType,
-                types: typesList.isNotEmpty ? typesList : ['unknown'],
-              );
-              
-              variants.add(variant);
-              print('DEBUG POKE_API: Added variant: $variantName (type: $variantType)');
-            }
-          } catch (e) {
-            print('DEBUG POKE_API: Error fetching variety details: $e');
-            continue;
-          }
-        }
-      }
-
-      print('DEBUG POKE_API: Total variants processed: ${variants.length}');
-      return variants;
-    } catch (e) {
-      print('DEBUG POKE_API: Error fetching pokemon variants: $e');
-      return [];
-    }
-  }
-
-  /// Extract variant type from pokemon name
-  static String _extractVariantType(String pokemonName) {
+  // ============================================================
+  // UTILIDADES PRIVADAS
+  // ============================================================
+  
+  /// Extract variant type from pokemon name and form data
+  static String _extractVariantType(String pokemonName, String formName, bool isMega) {
     final nameLower = pokemonName.toLowerCase();
+    final formLower = formName.toLowerCase();
     
-    if (nameLower.contains('mega')) {
+    if (isMega || nameLower.contains('mega') || formLower.contains('mega')) {
       return 'mega';
-    } else if (nameLower.contains('gigantamax')) {
+    } else if (nameLower.contains('gmax') || formLower.contains('gigantamax')) {
       return 'gigantamax';
-    } else if (nameLower.contains('alola')) {
+    } else if (nameLower.contains('alola') || formLower.contains('alola')) {
       return 'alola';
-    } else if (nameLower.contains('galar')) {
+    } else if (nameLower.contains('galar') || formLower.contains('galar')) {
       return 'galar';
-    } else if (nameLower.contains('paldea')) {
+    } else if (nameLower.contains('paldea') || formLower.contains('paldea')) {
       return 'paldea';
-    } else if (nameLower.contains('hisuian')) {
-      return 'hisuian';
+    } else if (nameLower.contains('hisui') || formLower.contains('hisui')) {
+      return 'hisui';
     }
     
     return 'variant';
   }
 }
-

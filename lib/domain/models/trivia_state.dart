@@ -22,6 +22,7 @@ class TriviaState extends Equatable {
   final String? selectedAnswer;
   final int lives;
   final List<String> achievements;
+  final List<String> newlyUnlockedAchievements;
   final String? errorMessage;
 
   const TriviaState({
@@ -36,6 +37,7 @@ class TriviaState extends Equatable {
     this.selectedAnswer,
     this.lives = 5,
     this.achievements = const [],
+    this.newlyUnlockedAchievements = const [],
     this.errorMessage,
   });
 
@@ -51,6 +53,7 @@ class TriviaState extends Equatable {
     String? selectedAnswer,
     int? lives,
     List<String>? achievements,
+    List<String>? newlyUnlockedAchievements,
     String? errorMessage,
   }) {
     return TriviaState(
@@ -65,6 +68,7 @@ class TriviaState extends Equatable {
       selectedAnswer: selectedAnswer ?? this.selectedAnswer,
       lives: lives ?? this.lives,
       achievements: achievements ?? this.achievements,
+      newlyUnlockedAchievements: newlyUnlockedAchievements ?? this.newlyUnlockedAchievements,
       errorMessage: errorMessage ?? this.errorMessage,
     );
   }
@@ -82,6 +86,7 @@ class TriviaState extends Equatable {
         selectedAnswer,
         lives,
         achievements,
+        newlyUnlockedAchievements,
         errorMessage,
       ];
 }

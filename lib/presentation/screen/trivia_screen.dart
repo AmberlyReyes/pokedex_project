@@ -7,11 +7,84 @@ import '../theme/app_theme.dart';
 import '../widgets/error_widget.dart';
 import '../../l10n/app_localizations.dart';
 
-class TriviaScreen extends ConsumerWidget {
+class TriviaScreen extends ConsumerStatefulWidget {
   const TriviaScreen({super.key});
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<TriviaScreen> createState() => _TriviaScreenState();
+}
+
+class _TriviaScreenState extends ConsumerState<TriviaScreen> {
+  
+  void _showAchievementNotification(String achievement) {
+    final achievementData = _getAchievementData(achievement, context);
+    
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(8),
+              decoration: BoxDecoration(
+                color: achievementData['color'],
+                shape: BoxShape.circle,
+              ),
+              child: Icon(
+                achievementData['icon'],
+                color: Colors.white,
+                size: 24,
+              ),
+            ),
+            const SizedBox(width: 16),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Text(
+                    '🏆 ¡Logro Desbloqueado!',
+                    style: GoogleFonts.nunito(
+                      fontWeight: FontWeight.bold,
+                      fontSize: 14,
+                      color: Colors.white,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    achievementData['name'],
+                    style: GoogleFonts.nunito(
+                      fontSize: 13,
+                      color: Colors.white,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        backgroundColor: const Color(0xFF1a1a2e),
+        behavior: SnackBarBehavior.floating,
+        duration: const Duration(seconds: 3),
+        shape: RoundedRectangleBorder(
+          borderRadius: BorderRadius.circular(12),
+          side: BorderSide(color: achievementData['color'], width: 2),
+        ),
+        margin: const EdgeInsets.all(16),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    // Escuchar cambios para mostrar notificaciones de logros
+    ref.listen(triviaProvider, (previous, next) {
+      if (next.newlyUnlockedAchievements.isNotEmpty) {
+        for (final achievement in next.newlyUnlockedAchievements) {
+          _showAchievementNotification(achievement);
+        }
+      }
+    });
+    
     final triviaState = ref.watch(triviaProvider);
     final l10n = AppLocalizations.of(context)!;
 

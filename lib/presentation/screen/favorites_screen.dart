@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 import '../../l10n/app_localizations.dart';
 
 import '../../data/models/pokemon_detail.dart';
@@ -98,14 +99,27 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                 itemBuilder: (context, index) {
                   final pokemon = favorites[index];
                   return ListTile(
-                    leading: Image.network(
-                      pokemon.spriteUrl,
+                    leading: CachedNetworkImage(
+                      imageUrl: pokemon.spriteUrl,
                       width: 50,
                       height: 50,
-                      errorBuilder: (context, error, stackTrace) => const Icon(Icons.catching_pokemon),
+                      placeholder: (context, url) => const SizedBox(
+                        width: 50,
+                        height: 50,
+                        child: Center(
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      ),
+                      errorWidget: (context, url, error) => const Icon(Icons.catching_pokemon),
                     ),
-                    title: Text(pokemon.name),
-                    subtitle: Text('#${pokemon.id}'),
+                    title: Text(
+                      pokemon.name,
+                      style: const TextStyle(color: Colors.white),
+                    ),
+                    subtitle: Text(
+                      '#${pokemon.id}',
+                      style: const TextStyle(color: Colors.white),
+                    ),
                     trailing: IconButton(
                       icon: const Icon(Icons.delete, color: Colors.red),
                       onPressed: () {

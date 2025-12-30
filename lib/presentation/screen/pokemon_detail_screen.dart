@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:hive_flutter/hive_flutter.dart';
+import 'package:cached_network_image/cached_network_image.dart';
 
 import '../../data/models/pokemon_detail.dart';
 import '../../data/models/pokemon_evolution.dart';
@@ -81,10 +82,8 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
       _error = null;
     });
     try {
-      // fetch detail and evolutions individually to prevent type errors
+      // 🚀 AHORA ES SOLO UNA LLAMADA - La super query trae todo
       final detail = await PokeApi.fetchPokemonDetail(widget.id);
-      final evolutions = await PokeApi.fetchEvolutionChain(widget.id);
-      final variants = await PokeApi.fetchPokemonVariants(detail.name);
 
       // Verificar si el Pokémon es favorito
       final box = await Hive.openBox<PokemonDetail>('favorites');
@@ -94,8 +93,9 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
 
       setState(() {
         _detail = detail;
-        _evolutions = evolutions;
-        _variants = variants;
+        // Los datos de evoluciones y variantes ya vienen en el detalle
+        _evolutions = detail.evolutions;
+        _variants = detail.variants;
         _loading = false;
       });
 
@@ -582,12 +582,19 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
                               children: [
                                 ClipRRect(
                                   borderRadius: BorderRadius.circular(12),
-                                  child: Image.network(
-                                    ev.imageUrl,
+                                  child: CachedNetworkImage(
+                                    imageUrl: ev.imageUrl,
                                     width: 80,
                                     height: 80,
                                     fit: BoxFit.contain,
-                                    errorBuilder: (_, _, _) =>
+                                    placeholder: (context, url) => const SizedBox(
+                                      width: 80,
+                                      height: 80,
+                                      child: Center(
+                                        child: CircularProgressIndicator(strokeWidth: 2),
+                                      ),
+                                    ),
+                                    errorWidget: (context, url, error) =>
                                         const Icon(Icons.image_not_supported, size: 50),
                                   ),
                                 ),
@@ -654,12 +661,19 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
                             children: [
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(12),
-                                child: Image.network(
-                                  variant.imageUrl,
+                                child: CachedNetworkImage(
+                                  imageUrl: variant.imageUrl,
                                   width: 80,
                                   height: 80,
                                   fit: BoxFit.contain,
-                                  errorBuilder: (_, _, _) =>
+                                  placeholder: (context, url) => const SizedBox(
+                                    width: 80,
+                                    height: 80,
+                                    child: Center(
+                                      child: CircularProgressIndicator(strokeWidth: 2),
+                                    ),
+                                  ),
+                                  errorWidget: (context, url, error) =>
                                       const Icon(Icons.image_not_supported, size: 50),
                                 ),
                               ),
@@ -702,9 +716,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
                                       style: TextStyle(
                                         fontSize: 9,
                                         fontWeight: FontWeight.bold,
-                                        color: Theme.of(context)
-                                            .colorScheme
-                                            .onPrimaryContainer,
+                                        color:  Color(0xFF00D9FF),
                                       ),
                                     ),
                                   );
@@ -1142,7 +1154,7 @@ class _MoveListTile extends StatelessWidget {
                 ),
                 const SizedBox(height: 2),
                 Text(
-                  '${PokemonMove.getMethodDisplay(move.method)}',
+                  PokemonMove.getMethodDisplay(move.method),
                   style: TextStyle(
                     fontSize: 12,
                     color: Colors.grey[600],
@@ -1346,11 +1358,17 @@ class _FloatingPokemonImageState extends State<_FloatingPokemonImage>
                   ],
                 ),
               ),
-              child: Image.network(
-                widget.imageUrl,
+              child: CachedNetworkImage(
+                imageUrl: widget.imageUrl,
                 height: 220,
                 fit: BoxFit.contain,
-                errorBuilder: (c, e, s) => const Icon(
+                placeholder: (context, url) => const SizedBox(
+                  height: 220,
+                  child: Center(
+                    child: CircularProgressIndicator(),
+                  ),
+                ),
+                errorWidget: (context, url, error) => const Icon(
                   Icons.catching_pokemon,
                   size: 180,
                 ),

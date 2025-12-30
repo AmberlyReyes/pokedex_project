@@ -1,6 +1,8 @@
 import 'package:hive/hive.dart';
 import 'pokemon_ability.dart';
 import 'pokemon_move.dart';
+import 'pokemon_evolution.dart';
+import 'pokemon_variant.dart';
 
 part 'pokemon_detail.g.dart';
 
@@ -42,6 +44,15 @@ class PokemonDetail {
   @HiveField(11)
   bool isFavorite = false; // Campo para marcar si el Pokémon es favorito
 
+  @HiveField(12)
+  final List<PokemonEvolution> evolutions;
+
+  @HiveField(13)
+  final List<PokemonVariant> variants;
+
+  @HiveField(14)
+  final String flavorText; // Descripción de la Pokédex
+
   PokemonDetail({
     required this.id,
     required this.name,
@@ -55,6 +66,9 @@ class PokemonDetail {
     required this.eggGroups,
     required this.typeMatchups,
     this.isFavorite = false, // Inicializar como no favorito por defecto
+    required this.evolutions,
+    required this.variants,
+    this.flavorText = '',
   });
 
   /// Parse PokemonDetail from GraphQL response
@@ -175,6 +189,168 @@ class PokemonDetail {
       }
     }
 
+    // Parse flavor text (descripción de la Pokédex)
+    String flavorText = '';
+    if (specy != null) {
+      final flavorTexts = specy['pokemon_v2_pokemonspeciesflavortexts'] as List<dynamic>? ?? [];
+      if (flavorTexts.isNotEmpty) {
+        flavorText = (flavorTexts[0] as Map<String, dynamic>)['flavor_text'] as String? ?? '';
+        // Limpiar caracteres de salto de línea y espacios extras
+        flavorText = flavorText.replaceAll('\n', ' ').replaceAll('\f', ' ').trim();
+      }
+    }
+
+    // Parse evoluciones desde la query unificada
+    final evolutionsList = <PokemonEvolution>[];
+    if (specy != null) {
+      final evoChain = specy['pokemon_v2_evolutionchain'] as Map<String, dynamic>?;
+      if (evoChain != null) {
+        final species = evoChain['pokemon_v2_pokemonspecies'] as List<dynamic>? ?? [];
+        for (final s in species) {
+          final speciesData = s as Map<String, dynamic>;
+          final evoId = speciesData['id'] as int;
+          final evoName = speciesData['name'] as String;
+          
+          // Obtener detalles de evolución
+          final evolutions = speciesData['pokemon_v2_pokemonevolutions'] as List<dynamic>? ?? [];
+          String triggerType = 'other';
+          String triggerDetails = 'Base form';
+          
+          if (evolutions.isNotEmpty) {
+            final evoData = evolutions[0] as Map<String, dynamic>;
+            final minLevel = evoData['min_level'] as int? ?? 0;
+            
+            final triggerData = evoData['pokemon_v2_evolutiontrigger'] as Map<String, dynamic>?;
+            if (triggerData != null) {
+              triggerType = triggerData['name'] as String? ?? 'other';
+            }
+            
+            // Construir detalles según el tipo de trigger
+            switch (triggerType) {
+              case 'level-up':
+                triggerDetails = minLevel > 0 ? 'Nivel $minLevel' : 'Subir nivel';
+                break;
+              case 'use-item':
+                final itemData = evoData['pokemon_v2_item'] as Map<String, dynamic>?;
+                if (itemData != null) {
+                  final itemName = itemData['name'] as String;
+                  triggerDetails = itemName.replaceAll('-', ' ');
+                }
+                break;
+              case 'trade':
+                triggerDetails = 'Intercambio';
+                break;
+              case 'shed':
+                triggerDetails = 'Espacio en equipo';
+                break;
+              default:
+                triggerDetails = 'Condición especial';
+            }
+            
+            final timeOfDay = evoData['time_of_day'] as String? ?? '';
+            if (timeOfDay.isNotEmpty) {
+              triggerDetails += ' ($timeOfDay)';
+            }
+            
+            final locationData = evoData['pokemon_v2_location'] as Map<String, dynamic>?;
+            if (locationData != null) {
+              final locationName = locationData['name'] as String;
+              triggerDetails += ' en ${locationName.replaceAll('-', ' ')}';
+            }
+          }
+          
+          evolutionsList.add(PokemonEvolution(
+            id: evoId,
+            name: evoName,
+            imageUrl: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/$evoId.png',
+            triggerType: triggerType,
+            triggerDetails: triggerDetails,
+          ));
+        }
+      }
+    }
+
+    // Parse variantes (Megas, Regionales, Gigantamax)
+    final variantsList = <PokemonVariant>[];
+    if (specy != null) {
+      final pokemons = specy['pokemon_v2_pokemons'] as List<dynamic>? ?? [];
+      for (final p in pokemons) {
+        final pokemonData = p as Map<String, dynamic>;
+        final variantId = pokemonData['id'] as int;
+        final variantName = pokemonData['name'] as String;
+        
+        // Obtener información de la forma
+        final forms = pokemonData['pokemon_v2_pokemonforms'] as List<dynamic>? ?? [];
+        String formName = '';
+        bool isMega = false;
+        bool isBattleOnly = false;
+        
+        if (forms.isNotEmpty) {
+          final form = forms[0] as Map<String, dynamic>;
+          formName = form['form_name'] as String? ?? '';
+          isMega = form['is_mega'] as bool? ?? false;
+          isBattleOnly = form['is_battle_only'] as bool? ?? false;
+        }
+        
+        // Filtrar variantes cosméticas (como Pikachu Rock Star, Belle, etc.)
+        // Solo incluir: Megas, Gigantamax, formas regionales y formas de batalla
+        bool isSignificantVariant = isMega || 
+                                    variantName.contains('mega') || 
+                                    variantName.contains('gmax') || 
+                                    variantName.contains('gigantamax') ||
+                                    variantName.contains('alola') || 
+                                    variantName.contains('galar') || 
+                                    variantName.contains('paldea') ||
+                                    variantName.contains('hisui') ||
+                                    formName.contains('mega') ||
+                                    formName.contains('gigantamax') ||
+                                    formName.contains('alola') ||
+                                    formName.contains('galar') ||
+                                    formName.contains('paldea') ||
+                                    formName.contains('hisui');
+        
+        // Omitir variantes cosméticas que no tienen sprites
+        if (!isSignificantVariant) {
+          continue;
+        }
+        
+        // Determinar tipo de variante
+        String variantType = 'variant';
+        if (isMega || variantName.contains('mega') || formName.contains('mega')) {
+          variantType = 'mega';
+        } else if (variantName.contains('gmax') || formName.contains('gigantamax')) {
+          variantType = 'gigantamax';
+        } else if (variantName.contains('alola') || formName.contains('alola')) {
+          variantType = 'alola';
+        } else if (variantName.contains('galar') || formName.contains('galar')) {
+          variantType = 'galar';
+        } else if (variantName.contains('paldea') || formName.contains('paldea')) {
+          variantType = 'paldea';
+        } else if (variantName.contains('hisui') || formName.contains('hisui')) {
+          variantType = 'hisui';
+        }
+        
+        // Obtener tipos de la variante
+        final variantTypes = <String>[];
+        final types = pokemonData['pokemon_v2_pokemontypes'] as List<dynamic>? ?? [];
+        for (final t in types) {
+          final typeData = (t as Map<String, dynamic>)['pokemon_v2_type'] as Map<String, dynamic>?;
+          if (typeData != null) {
+            variantTypes.add(typeData['name'] as String);
+          }
+        }
+        
+        variantsList.add(PokemonVariant(
+          id: variantId,
+          name: variantName,
+          formName: formName.isEmpty ? variantName : formName,
+          imageUrl: 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/$variantId.png',
+          variantType: variantType,
+          types: variantTypes.isNotEmpty ? variantTypes : ['unknown'],
+        ));
+      }
+    }
+
     return PokemonDetail(
       id: id,
       name: name,
@@ -187,7 +363,10 @@ class PokemonDetail {
       moves: movesList,
       eggGroups: eggGroupsList,
       typeMatchups: typeMatchupsMap,
-      isFavorite: (json['is_favorite'] as bool?) ?? false, // Manejo de nulos
+      isFavorite: (json['is_favorite'] as bool?) ?? false,
+      evolutions: evolutionsList,
+      variants: variantsList,
+      flavorText: flavorText,
     );
   }
 

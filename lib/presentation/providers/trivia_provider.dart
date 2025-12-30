@@ -123,6 +123,7 @@ class TriviaNotifier extends StateNotifier<TriviaState> {
         status: GameStatus.playing,
         questionNumber: state.questionNumber + 1,
         timeLeft: _maxTime,
+        newlyUnlockedAchievements: [], // Limpiar logros mostrados
       );
 
       _startTimer();
@@ -182,13 +183,14 @@ class TriviaNotifier extends StateNotifier<TriviaState> {
     int newScore = state.score;
     int newLives = state.lives;
     List<String> newAchievements = List.from(state.achievements);
+    List<String> newlyUnlocked = [];
     
     if (isCorrect) {
       // Puntos base + bonus por tiempo restante
       newScore += _pointsPerQuestion + (state.timeLeft * _timeBonus);
       
-      // Desbloquear logros
-      _checkAchievements(newScore, state.questionNumber + 1, newAchievements);
+      // Desbloquear logros y obtener los nuevos
+      newlyUnlocked = _checkAchievements(newScore, state.questionNumber + 1, newAchievements);
     } else {
       // Perder una vida
       newLives -= 1;
@@ -201,6 +203,7 @@ class TriviaNotifier extends StateNotifier<TriviaState> {
       score: newScore,
       lives: newLives,
       achievements: newAchievements,
+      newlyUnlockedAchievements: newlyUnlocked, // Nuevo campo para notificaciones
     );
     
     // Auto-avance después de 2 segundos
@@ -214,31 +217,42 @@ class TriviaNotifier extends StateNotifier<TriviaState> {
     });
   }
   
-  void _checkAchievements(int score, int questionNumber, List<String> achievements) {
+  List<String> _checkAchievements(int score, int questionNumber, List<String> achievements) {
+    final newlyUnlocked = <String>[];
+    
+    
     // Primera Captura: Responder correctamente la primera pregunta
     if (questionNumber == 1 && !achievements.contains('primera_captura')) {
       achievements.add('primera_captura');
+      newlyUnlocked.add('primera_captura');
     }
     
-    // Racha de Fuego: 5 preguntas correctas seguidas (sin perder vidas en las primeras 5)
-    if (questionNumber >= 5 && state.lives == 5 && !achievements.contains('racha_fuego')) {
+    // Racha de Fuego: 3 preguntas correctas seguidas (sin perder vidas en las primeras 3)
+    if (questionNumber >= 3 && state.lives == 5 && !achievements.contains('racha_fuego')) {
       achievements.add('racha_fuego');
+      newlyUnlocked.add('racha_fuego');
     }
     
-    // Maestro Pokémon: Alcanzar 1000 puntos
-    if (score >= 1000 && !achievements.contains('maestro_pokemon')) {
+    // Maestro Pokémon: Alcanzar 300 puntos
+    if (score >= 300 && !achievements.contains('maestro_pokemon')) {
       achievements.add('maestro_pokemon');
+      newlyUnlocked.add('maestro_pokemon');
     }
     
-    // Experto: Alcanzar 2000 puntos
-    if (score >= 2000 && !achievements.contains('experto')) {
+    // Experto: Alcanzar 600 puntos
+    if (score >= 600 && !achievements.contains('experto')) {
       achievements.add('experto');
+      newlyUnlocked.add('experto');
     }
     
-    // Leyenda: Alcanzar 5000 puntos
-    if (score >= 5000 && !achievements.contains('leyenda')) {
+    // Leyenda: Alcanzar 1000 puntos
+    if (score >= 1000 && !achievements.contains('leyenda')) {
       achievements.add('leyenda');
+      newlyUnlocked.add('leyenda');
     }
+    
+    
+    return newlyUnlocked;
   }
 
   Future<void> nextQuestion() async {

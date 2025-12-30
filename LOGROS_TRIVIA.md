@@ -18,29 +18,29 @@
 - **Icono**: Estrella
 
 ###  Racha de Fuego
-- **Requisito**: Completar 5 preguntas correctas sin perder vidas
+- **Requisito**: Completar 3 preguntas correctas sin perder vidas
 - **Color**: Naranja 
 - **Icono**: Llama
-- **Dificultad**: Media
+- **Dificultad**: Fácil
 
 ###  Maestro Pokémon
-- **Requisito**: Alcanzar 1,000 puntos en una partida
+- **Requisito**: Alcanzar 300 puntos en una partida
 - **Color**: Azul 
 - **Icono**: Medalla
-- **Aprox**: ~7-10 respuestas rápidas
+- **Aprox**: ~2-3 respuestas rápidas
 
 ### 🥈 Experto
-- **Requisito**: Alcanzar 2,000 puntos en una partida
+- **Requisito**: Alcanzar 600 puntos en una partida
 - **Color**: Morado (#9C27B0)
 - **Icono**: Trofeo Premium
-- **Aprox**: ~14-20 respuestas rápidas
+- **Aprox**: ~4-5 respuestas rápidas
 
 ### 🥇 Leyenda
-- **Requisito**: Alcanzar 5,000 puntos en una partida
+- **Requisito**: Alcanzar 1,000 puntos en una partida
 - **Color**: Dorado (#FFD700)
 - **Icono**: Copa de Campeón
-- **Dificultad**: Muy Alta
-- **Aprox**: ~35-50 respuestas perfectas
+- **Dificultad**: Media
+- **Aprox**: ~7-8 respuestas rápidas
 
 ## 💾 Persistencia
 

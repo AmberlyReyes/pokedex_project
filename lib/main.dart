@@ -10,6 +10,8 @@ import 'package:pokedez/data/models/pokemon_ability.dart';
 import 'package:pokedez/data/models/pokemon_evolution.dart';
 import 'package:pokedez/data/models/pokemon_move.dart';
 import 'package:pokedez/data/models/pokemon_variant.dart';
+import 'package:pokedez/data/models/pokemon_list_item.dart';
+import 'package:pokedez/data/models/cached_pokemon_list.dart';
 import 'presentation/screen/home_screen.dart';
 import 'l10n/app_localizations.dart';
 import 'presentation/providers/locale_provider.dart';
@@ -25,7 +27,17 @@ void main() async {
   Hive.registerAdapter(PokemonEvolutionAdapter());
   Hive.registerAdapter(PokemonMoveAdapter());
   Hive.registerAdapter(PokemonVariantAdapter());
+  Hive.registerAdapter(PokemonListItemAdapter());
+  Hive.registerAdapter(CachedPokemonListAdapter());
+  
+  // Limpiar datos antiguos incompatibles con nueva estructura
+  // ERICK debes Eliminar esta línea después de la primera ejecución exitosa
+  /*try {
+    await Hive.deleteBoxFromDisk('favorites');
+  } catch (_) {}
+  */
   await Hive.openBox<PokemonDetail>('favorites');
+  await Hive.openBox<CachedPokemonList>('pokemon_cache');
 
   // Inicializa GraphQL
   PokeApi.initGraphQL();
