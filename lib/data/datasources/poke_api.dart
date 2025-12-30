@@ -619,73 +619,111 @@ class PokeApi {
     }
   }
 
-  /// Fetch pokemon variants (mega, gigantamax, regional forms)
+  /// Fetch pokemon varieties (different forms) using REST API
+  /// Excludes the default variety (is_default: true)
   static Future<List<PokemonVariant>> fetchPokemonVariants(String pokemonName) async {
-    const query = '''
-      query GetPokemonVariants(\$name: String!) {
-        pokemon_v2_pokemon(where: {name: {_eq: \$name}}) {
-          id
-          pokemon_v2_pokemonforms {
-            id
-            form_name
-            pokemon {
-              name
-              id
-            }
-            pokemon_v2_pokemontypes {
-              pokemon_v2_type {
-                name
-              }
-            }
-          }
-        }
-      }
-    ''';
-
     try {
-      final result = await _client.query(
-        QueryOptions(
-          document: gql(query),
-          variables: {'name': pokemonName},
-        ),
-      );
-
-      if (result.hasException) {
-        throw Exception('Error fetching pokemon variants: ${result.exception}');
+      // First, get the species data using REST API
+      final speciesUrl = '$_restEndpoint/pokemon-species/$pokemonName';
+      print('DEBUG POKE_API: Fetching species from: $speciesUrl');
+      
+      final speciesResponse = await http.get(Uri.parse(speciesUrl));
+      
+      if (speciesResponse.statusCode != 200) {
+        print('DEBUG POKE_API: Species not found with status ${speciesResponse.statusCode}');
+        return [];
       }
 
-      final pokemons = result.data?['pokemon_v2_pokemon'] as List<dynamic>? ?? [];
-      if (pokemons.isEmpty) return [];
+      final speciesData = jsonDecode(speciesResponse.body) as Map<String, dynamic>;
+      final varieties = speciesData['varieties'] as List<dynamic>? ?? [];
 
-      final pokemon = pokemons[0] as Map<String, dynamic>;
-      final forms = pokemon['pokemon_v2_pokemonforms'] as List<dynamic>? ?? [];
+      print('DEBUG POKE_API: Found ${varieties.length} varieties for $pokemonName');
 
-      // Filter for important variants only (mega, gigantamax, regional forms)
       final variants = <PokemonVariant>[];
-      for (final form in forms) {
-        final formData = form as Map<String, dynamic>;
-        final formName = formData['form_name'] as String? ?? '';
+
+      // Process each variety except the default one
+      for (final varietyData in varieties) {
+        final variety = varietyData as Map<String, dynamic>;
+        final isDefault = variety['is_default'] as bool? ?? false;
         
-        // Only include mega, gigantamax, alola, galar, paldea forms and skip the default form
-        if ((formName.contains('mega') || 
-             formName.contains('gigantamax') || 
-             formName.contains('alola') || 
-             formName.contains('galar') || 
-             formName.contains('paldea')) &&
-            formName.isNotEmpty) {
+        // Skip the default variety
+        if (isDefault) {
+          print('DEBUG POKE_API: Skipping default variety');
+          continue;
+        }
+
+        final pokemonUrl = variety['pokemon']['url'] as String?;
+        
+        if (pokemonUrl != null) {
           try {
-            final variant = PokemonVariant.fromGraphQL(formData);
-            variants.add(variant);
+            // Fetch detailed data for this variety
+            final pokemonResponse = await http.get(Uri.parse(pokemonUrl));
+            
+            if (pokemonResponse.statusCode == 200) {
+              final pokemonData = jsonDecode(pokemonResponse.body) as Map<String, dynamic>;
+              
+              // Create a PokemonVariant from the variety data
+              final variantName = pokemonData['name'] as String? ?? '';
+              final id = pokemonData['id'] as int? ?? 0;
+              final imageUrl = 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/$id.png';
+              
+              // Try to extract variant type from the name (e.g., "alola", "galar", "paldea")
+              String variantType = _extractVariantType(variantName);
+              
+              // Extract types from the variety
+              final typesList = <String>[];
+              final types = pokemonData['types'] as List<dynamic>? ?? [];
+              for (final t in types) {
+                final typeName = (t as Map<String, dynamic>)['type']['name'] as String;
+                typesList.add(typeName);
+              }
+              
+              final variant = PokemonVariant(
+                id: id,
+                name: variantName,
+                formName: variantName,
+                imageUrl: imageUrl,
+                variantType: variantType,
+                types: typesList.isNotEmpty ? typesList : ['unknown'],
+              );
+              
+              variants.add(variant);
+              print('DEBUG POKE_API: Added variant: $variantName (type: $variantType)');
+            }
           } catch (e) {
+            print('DEBUG POKE_API: Error fetching variety details: $e');
             continue;
           }
         }
       }
 
+      print('DEBUG POKE_API: Total variants processed: ${variants.length}');
       return variants;
     } catch (e) {
+      print('DEBUG POKE_API: Error fetching pokemon variants: $e');
       return [];
     }
+  }
+
+  /// Extract variant type from pokemon name
+  static String _extractVariantType(String pokemonName) {
+    final nameLower = pokemonName.toLowerCase();
+    
+    if (nameLower.contains('mega')) {
+      return 'mega';
+    } else if (nameLower.contains('gigantamax')) {
+      return 'gigantamax';
+    } else if (nameLower.contains('alola')) {
+      return 'alola';
+    } else if (nameLower.contains('galar')) {
+      return 'galar';
+    } else if (nameLower.contains('paldea')) {
+      return 'paldea';
+    } else if (nameLower.contains('hisuian')) {
+      return 'hisuian';
+    }
+    
+    return 'variant';
   }
 }
 
