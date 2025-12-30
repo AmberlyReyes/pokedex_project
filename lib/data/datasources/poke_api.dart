@@ -114,6 +114,9 @@ class PokeApi {
           }
           pokemon_v2_pokemonmoves {
             level
+            pokemon_v2_movelearnmethod {
+              name
+            }
             pokemon_v2_move {
               name
             }

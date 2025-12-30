@@ -28,10 +28,13 @@ class PokemonMove {
     
     final level = json['level'] as int?;
     
-    // Deduce method based on presence of level
-    String method = 'level-up';
-    if (level == null) {
-      // Si no tiene nivel, asumimos que es TM/máquina (el método más común sin nivel)
+    // Obtener el método de aprendizaje desde la API
+    String method = 'level-up'; // valor por defecto
+    final methodData = json['pokemon_v2_movelearnmethod'] as Map<String, dynamic>?;
+    if (methodData != null) {
+      method = methodData['name'] as String? ?? 'level-up';
+    } else if (level == null) {
+      // Fallback: Si no tiene nivel, asumimos que es TM/máquina
       method = 'machine';
     }
 
@@ -51,6 +54,8 @@ class PokemonMove {
 
   static String getMethodDisplay(String method) {
     switch (method.toLowerCase()) {
+      case 'all':
+        return 'Todos';
       case 'level-up':
         return 'Nivel';
       case 'machine':

@@ -109,10 +109,41 @@ class PokemonDetail {
     // Parse moves from GraphQL format
     final movesList = <PokemonMove>[];
     final moves = json['pokemon_v2_pokemonmoves'] as List<dynamic>? ?? [];
+    
+    // Definir versiones prioritarias (más nuevas primero)
+    const priorityVersions = [
+      'scarlet-violet',
+      'sword-shield',
+      'ultra-sun-ultra-moon',
+      'sun-moon',
+      'omega-ruby-alpha-sapphire',
+      'x-y',
+    ];
+    
+    // Agrupar movimientos por nombre para eliminar duplicados
+    final movesMap = <String, PokemonMove>{};
+    
     for (final m in moves) {
       final move = PokemonMove.fromGraphQL(m as Map<String, dynamic>);
-      movesList.add(move);
+      
+      // Si el movimiento no existe o si la versión actual es más prioritaria
+      if (!movesMap.containsKey(move.name)) {
+        movesMap[move.name] = move;
+      } else {
+        final existing = movesMap[move.name]!;
+        final currentVersionIndex = priorityVersions.indexOf(move.versionGroup);
+        final existingVersionIndex = priorityVersions.indexOf(existing.versionGroup);
+        
+        // Si la versión actual está en la lista de prioridades y es más alta
+        if (currentVersionIndex != -1) {
+          if (existingVersionIndex == -1 || currentVersionIndex < existingVersionIndex) {
+            movesMap[move.name] = move;
+          }
+        }
+      }
     }
+    
+    movesList.addAll(movesMap.values);
 
     // Parse egg groups from GraphQL format
     final eggGroupsList = <String>[];

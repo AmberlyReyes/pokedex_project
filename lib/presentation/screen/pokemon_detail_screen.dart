@@ -62,7 +62,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
       CurvedAnimation(parent: _slideController, curve: Curves.easeOutCubic),
     );
 
-    _tabController = TabController(length: 4, vsync: this);
+    _tabController = TabController(length: 5, vsync: this);
 
     _load();
   }
@@ -237,6 +237,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
                   Tab(text: l10n.basicInfo, icon: const Icon(Icons.info_outline)),
                   Tab(text: l10n.abilitiesTab, icon: const Icon(Icons.auto_awesome)),
                   Tab(text: l10n.statistics, icon: const Icon(Icons.bar_chart)),
+                  Tab(text: l10n.moves, icon: const Icon(Icons.sports_martial_arts)),
                   Tab(text: l10n.combat, icon: const Icon(Icons.shield_outlined)),
                 ],
               ),
@@ -263,6 +264,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
                               _buildBasicInfoTab(),
                               _buildAbilitiesTab(),
                               _buildStatsTab(),
+                              PokemonMovesTab(moves: _detail!.moves, l10n: l10n),
                               _buildCombatTab(),
                             ],
                           ),
@@ -545,9 +547,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
                               style: TextStyle(
                                 fontSize: 11,
                                 fontWeight: FontWeight.bold,
-                                color: Theme.of(context)
-                                    .colorScheme
-                                    .onPrimaryContainer,
+                                color: Color(0xFF00D9FF),
                               ),
                             ),
                           ),
@@ -742,7 +742,6 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
   }
 
   Widget _buildStatsTab() {
-    final l10n = AppLocalizations.of(context)!;
     // Calculate total stats
     final totalStats = _detail!.stats.values.reduce((a, b) => a + b);
     
@@ -782,7 +781,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
                       'Total Stats: $totalStats',
                       style: Theme.of(context).textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
-                        color: Colors.black,
+                        color: Color(0xFF00D9FF),
                       ),
                     ),
                   ),
@@ -836,24 +835,6 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
               ],
             ),
           ),
-          const SizedBox(height: 24),
-
-          // Moves
-          _AnimatedDetailSection(
-            delay: const Duration(milliseconds: 800),
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(l10n.moves,
-                    style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.black)),
-                const SizedBox(height: 8),
-                if (_detail!.moves.isEmpty)
-                  Text(l10n.noMoves, style: const TextStyle(color: Colors.black))
-                else
-                  _buildMovesSection(),
-              ],
-            ),
-          ),
         ],
       ),
     );
@@ -895,11 +876,6 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
         ],
       ),
     );
-  }
-
-  Widget _buildMovesSection() {
-    final l10n = AppLocalizations.of(context)!;
-    return _MovesSection(moves: _detail!.moves, l10n: l10n);
   }
 
   Widget _buildMatchupSection(String title, List<MapEntry<String, double>> matchups) {
@@ -949,211 +925,296 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
   }
 }
 
-/// Widget for movimientos con filtros
-class _MovesSection extends StatefulWidget {
+/// Widget para movimientos con virtualización real usando Slivers
+class PokemonMovesTab extends StatefulWidget {
   final List<PokemonMove> moves;
   final AppLocalizations l10n;
 
-  const _MovesSection({required this.moves, required this.l10n});
+  const PokemonMovesTab({super.key, required this.moves, required this.l10n});
 
   @override
-  State<_MovesSection> createState() => _MovesSectionState();
+  State<PokemonMovesTab> createState() => _PokemonMovesTabState();
 }
 
-class _MovesSectionState extends State<_MovesSection> {
-  late String selectedMethod;
-  late String selectedSort;
-  late List<PokemonMove> filteredMoves;
-  late Set<String> availableMethods;
+class _PokemonMovesTabState extends State<PokemonMovesTab> with AutomaticKeepAliveClientMixin {
+  String _selectedMethod = 'all';
+  String _sortBy = 'level';
+  List<PokemonMove> _filteredMoves = [];
+  Set<String> _availableMethods = {};
 
   @override
   void initState() {
     super.initState();
-    _initializeData();
+    _availableMethods = widget.moves.map((m) => m.method).toSet();
+    _filterMoves();
   }
 
-  void _initializeData() {
-    // Get available methods
-    availableMethods = widget.moves.map((m) => m.method).toSet();
-    
-    // Default to level-up if available, otherwise first method
-    selectedMethod = availableMethods.contains('level-up') ? 'level-up' : availableMethods.first;
-    selectedSort = 'level'; // 'level' o 'name'
-    
-    _applyFilters();
-  }
-
-  void _applyFilters() {
-    filteredMoves = widget.moves
-        .where((move) => move.method == selectedMethod)
-        .toList();
-
-    // Sort
-    if (selectedSort == 'level' && selectedMethod == 'level-up') {
-      filteredMoves.sort((a, b) {
-        final levelA = a.level ?? 999;
-        final levelB = b.level ?? 999;
-        return levelA.compareTo(levelB);
-      });
+  void _filterMoves() {
+    // Filtrar por método
+    if (_selectedMethod == 'all') {
+      _filteredMoves = List.from(widget.moves);
     } else {
-      filteredMoves.sort((a, b) => a.name.compareTo(b.name));
+      _filteredMoves = widget.moves.where((m) => m.method == _selectedMethod).toList();
     }
 
-    setState(() {});
+    // Ordenar
+    if (_sortBy == 'level') {
+      _filteredMoves.sort((a, b) {
+        final levelA = a.level ?? 999;
+        final levelB = b.level ?? 999;
+        int compareLevel = levelA.compareTo(levelB);
+        if (compareLevel != 0) return compareLevel;
+        return a.name.compareTo(b.name);
+      });
+    } else {
+      _filteredMoves.sort((a, b) => a.name.compareTo(b.name));
+    }
   }
 
   @override
   Widget build(BuildContext context) {
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        // Filtros
-        SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: Row(
-            children: [
-              const Text('Método: ', style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black)),
-              const SizedBox(width: 8),
-              ...availableMethods.map((method) {
-                final isSelected = selectedMethod == method;
-                return Padding(
-                  padding: const EdgeInsets.only(right: 8),
-                  child: FilterChip(
-                    label: Text(PokemonMove.getMethodDisplay(method)),
-                    selected: isSelected,
-                    onSelected: (selected) {
-                      if (selected) {
-                        selectedMethod = method;
-                        // Reset sort if method doesn't support level
-                        if (method != 'level-up' && selectedSort == 'level') {
-                          selectedSort = 'name';
-                        }
-                        _applyFilters();
-                      }
-                    },
+    super.build(context); // Necesario para AutomaticKeepAliveClientMixin
+
+    return CustomScrollView(
+      key: const PageStorageKey('moves_tab'),
+      slivers: [
+        // Cabecera con filtros
+        SliverToBoxAdapter(
+          child: Padding(
+            padding: const EdgeInsets.all(16.0),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                // Título con contador
+                Container(
+                  padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+                  decoration: BoxDecoration(
+                    color: Theme.of(context).colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
                   ),
-                );
-              }),
-            ],
-          ),
-        ),
-        const SizedBox(height: 12),
-
-        // Ordenamiento
-        if (selectedMethod == 'level-up')
-          Row(
-            children: [
-              const Text('Ordenar: ', style: TextStyle(fontWeight: FontWeight.bold)),
-              const SizedBox(width: 8),
-              ChoiceChip(
-                label: const Text('Nivel'),
-                selected: selectedSort == 'level',
-                onSelected: (selected) {
-                  if (selected) {
-                    selectedSort = 'level';
-                    _applyFilters();
-                  }
-                },
-              ),
-              const SizedBox(width: 8),
-              ChoiceChip(
-                label: const Text('Nombre'),
-                selected: selectedSort == 'name',
-                onSelected: (selected) {
-                  if (selected) {
-                    selectedSort = 'name';
-                    _applyFilters();
-                  }
-                },
-              ),
-            ],
-          ),
-        const SizedBox(height: 12),
-
-        // Lista de movimientos con virtual scrolling
-        Text(widget.l10n.movesCount(filteredMoves.length), 
-          style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 8),
-        SizedBox(
-          height: 400,
-          child: filteredMoves.isEmpty
-              ? Center(
                   child: Text(
-                    widget.l10n.noMovesWithMethod,
-                    style: Theme.of(context).textTheme.bodyMedium,
+                    widget.l10n.movesCount(_filteredMoves.length),
+                    style: Theme.of(context).textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.bold,
+                      color: Color(0xFF00D9FF),
+                    ),
                   ),
-                )
-              : ListView.builder(
-                  itemCount: filteredMoves.length,
-                  itemBuilder: (context, index) {
-                    final move = filteredMoves[index];
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 4),
-                      child: Container(
-                        padding: const EdgeInsets.symmetric(
-                          horizontal: 12,
-                          vertical: 8,
-                        ),
-                        decoration: BoxDecoration(
-                          color: Theme.of(context)
-                              .colorScheme
-                              .surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(
-                            color: Theme.of(context)
-                                .colorScheme
-                                .outline
-                                .withValues(alpha: 0.3),
-                          ),
-                        ),
-                        child: Row(
-                          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                          children: [
-                            Expanded(
-                              child: Text(
-                                _capitalize(move.name),
-                                style: Theme.of(context)
-                                    .textTheme
-                                    .bodyMedium
-                                    ?.copyWith(fontWeight: FontWeight.w500),
-                              ),
-                            ),
-                            if (move.level != null)
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 8,
-                                  vertical: 4,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: Theme.of(context)
-                                      .colorScheme
-                                      .primaryContainer,
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  'Lv ${move.level}',
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.bold,
-                                    color: Theme.of(context)
-                                        .colorScheme
-                                        .onPrimaryContainer,
-                                  ),
-                                ),
-                              ),
-                          ],
-                        ),
-                      ),
-                    );
-                  },
                 ),
+                const SizedBox(height: 16),
+
+                // Filtros de método
+                const Text('Filtrar por método:', 
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
+                const SizedBox(height: 8),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _buildFilterChip('Todos', 'all'),
+                    ..._availableMethods.map((method) => _buildFilterChip(
+                      PokemonMove.getMethodDisplay(method), 
+                      method
+                    )),
+                  ],
+                ),
+                const SizedBox(height: 16),
+
+                // Ordenamiento
+                const Text('Ordenar por:', 
+                  style: TextStyle(fontWeight: FontWeight.bold, color: Colors.black87)),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    ChoiceChip(
+                      label: const Text('Nivel'),
+                      selected: _sortBy == 'level',
+                      onSelected: (_) {
+                        setState(() {
+                          _sortBy = 'level';
+                          _filterMoves();
+                        });
+                      },
+                    ),
+                    const SizedBox(width: 8),
+                    ChoiceChip(
+                      label: const Text('Nombre'),
+                      selected: _sortBy == 'name',
+                      onSelected: (_) {
+                        setState(() {
+                          _sortBy = 'name';
+                          _filterMoves();
+                        });
+                      },
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 16),
+              ],
+            ),
+          ),
         ),
+
+        // Lista virtualizada con SliverList
+        _filteredMoves.isEmpty
+          ? SliverFillRemaining(
+              child: Center(
+                child: Text(
+                  widget.l10n.noMovesWithMethod,
+                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                    color: Colors.black54,
+                  ),
+                ),
+              ),
+            )
+          : SliverList(
+              delegate: SliverChildBuilderDelegate(
+                (context, index) {
+                  final move = _filteredMoves[index];
+                  return _MoveListTile(move: move);
+                },
+                childCount: _filteredMoves.length,
+              ),
+            ),
+
+        // Padding final
+        const SliverPadding(padding: EdgeInsets.only(bottom: 80)),
       ],
     );
   }
 
-  String _capitalize(String s) =>
-      s.isEmpty ? s : (s[0].toUpperCase() + s.substring(1));
+  Widget _buildFilterChip(String label, String value) {
+    return FilterChip(
+      label: Text(label),
+      selected: _selectedMethod == value,
+      onSelected: (_) {
+        setState(() {
+          _selectedMethod = value;
+          _filterMoves();
+        });
+      },
+    );
+  }
+
+  @override
+  bool get wantKeepAlive => true;
+}
+
+/// Widget optimizado para cada movimiento
+class _MoveListTile extends StatelessWidget {
+  final PokemonMove move;
+
+  const _MoveListTile({required this.move});
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      margin: const EdgeInsets.symmetric(horizontal: 16, vertical: 4),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(12),
+        boxShadow: [
+          BoxShadow(
+            color: Colors.black.withValues(alpha: 0.05),
+            blurRadius: 4,
+            offset: const Offset(0, 2),
+          )
+        ],
+      ),
+      child: Row(
+        children: [
+          // Icono del método
+          _getMethodIcon(move.method),
+          const SizedBox(width: 12),
+          
+          // Información del movimiento
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  move.name[0].toUpperCase() + move.name.substring(1).replaceAll('-', ' '),
+                  style: const TextStyle(
+                    fontWeight: FontWeight.w600,
+                    fontSize: 14,
+                    color: Colors.black87,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  '${PokemonMove.getMethodDisplay(move.method)}',
+                  style: TextStyle(
+                    fontSize: 12,
+                    color: Colors.grey[600],
+                  ),
+                ),
+              ],
+            ),
+          ),
+          
+          // Nivel o badge
+          if (move.level != null)
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+              decoration: BoxDecoration(
+                color: Theme.of(context).colorScheme.primaryContainer,
+                borderRadius: BorderRadius.circular(20),
+              ),
+              child: Text(
+                'Nv ${move.level}',
+                style: TextStyle(
+                  fontSize: 12,
+                  fontWeight: FontWeight.bold,
+                  color: Colors.white,
+                ),
+              ),
+            )
+          else
+            Icon(
+              Icons.circle,
+              size: 8,
+              color: Colors.grey[400],
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _getMethodIcon(String method) {
+    IconData icon;
+    Color color;
+
+    switch (method) {
+      case 'level-up':
+        icon = Icons.arrow_upward;
+        color = Colors.green;
+        break;
+      case 'machine':
+        icon = Icons.album;
+        color = Colors.purple;
+        break;
+      case 'egg':
+        icon = Icons.egg;
+        color = Colors.orange;
+        break;
+      case 'tutor':
+        icon = Icons.school;
+        color = Colors.blue;
+        break;
+      default:
+        icon = Icons.help_outline;
+        color = Colors.grey;
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(8),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.1),
+        shape: BoxShape.circle,
+      ),
+      child: Icon(icon, color: color, size: 20),
+    );
+  }
 }
 
 /// Widget for animating detail sections with staggered fade and slide

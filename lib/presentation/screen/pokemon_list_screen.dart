@@ -102,8 +102,6 @@ class _PokemonListScreenState extends ConsumerState<PokemonListScreen> {
     }
   }
 
-  // Se eliminan _load(), _loadMore() y _refresh(). Ahora se usa el notifier.
-  // Ejemplo: para refrescar, se llamaría a ref.read(pokemonListProvider.notifier).refreshPokemons()
 
   @override
   Widget build(BuildContext context) {
@@ -276,11 +274,13 @@ class _PokemonListScreenState extends ConsumerState<PokemonListScreen> {
                 children: [
                   Text('Filtros', style: Theme.of(context).textTheme.titleLarge),
                   const SizedBox(height: 16),
-                  Text(l10n.generation, style: Theme.of(context).textTheme.titleMedium),
+                  Text(l10n.generation,  style: const TextStyle(color: Color.fromARGB(255, 0, 0, 0)),),
                   DropdownButton<String>(
                     value: selectedGeneration,
                     isExpanded: true,
-                    hint: Text(l10n.selectGeneration),
+                    dropdownColor: Colors.black,
+                    style: const TextStyle(color: Colors.black, fontSize: 16),
+                    hint: Text(l10n.selectGeneration, style: const TextStyle(color: Colors.black)),
                     items: generations.map((g) {
                       String translatedLabel;
                       switch(g) {
@@ -314,7 +314,16 @@ class _PokemonListScreenState extends ConsumerState<PokemonListScreen> {
                         default:
                           translatedLabel = 'Generation $g';
                       }
-                      return DropdownMenuItem(value: g, child: Text(translatedLabel));
+                      return DropdownMenuItem(
+                        value: g, 
+                        child: Text(
+                          translatedLabel, 
+                          style: const TextStyle(
+                            color: Color(0xFF00D9FF),
+                            fontSize: 16,
+                          ),
+                        ),
+                      );
                     }).toList(),
                     onChanged: (val) {
                       setModalState(() {
