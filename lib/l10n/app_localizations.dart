@@ -859,6 +859,96 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No moves with this method'**
   String get noMovesWithMethod;
+
+  /// No description provided for @sortByNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'By Number'**
+  String get sortByNumber;
+
+  /// No description provided for @sortByNameAsc.
+  ///
+  /// In en, this message translates to:
+  /// **'Name (A-Z)'**
+  String get sortByNameAsc;
+
+  /// No description provided for @sortByNameDesc.
+  ///
+  /// In en, this message translates to:
+  /// **'Name (Z-A)'**
+  String get sortByNameDesc;
+
+  /// No description provided for @formVariant.
+  ///
+  /// In en, this message translates to:
+  /// **'Form / Variant'**
+  String get formVariant;
+
+  /// No description provided for @baseForm.
+  ///
+  /// In en, this message translates to:
+  /// **'Base Form'**
+  String get baseForm;
+
+  /// No description provided for @allTypes.
+  ///
+  /// In en, this message translates to:
+  /// **'All Types'**
+  String get allTypes;
+
+  /// No description provided for @allPowers.
+  ///
+  /// In en, this message translates to:
+  /// **'All Powers'**
+  String get allPowers;
+
+  /// No description provided for @powerLow.
+  ///
+  /// In en, this message translates to:
+  /// **'Weak (0-300)'**
+  String get powerLow;
+
+  /// No description provided for @powerMedium.
+  ///
+  /// In en, this message translates to:
+  /// **'Average (301-450)'**
+  String get powerMedium;
+
+  /// No description provided for @powerHigh.
+  ///
+  /// In en, this message translates to:
+  /// **'Strong (451-550)'**
+  String get powerHigh;
+
+  /// No description provided for @powerVeryHigh.
+  ///
+  /// In en, this message translates to:
+  /// **'Pseudo-Legendary (551-599)'**
+  String get powerVeryHigh;
+
+  /// No description provided for @powerLegendary.
+  ///
+  /// In en, this message translates to:
+  /// **'Legendary (600+)'**
+  String get powerLegendary;
+
+  /// No description provided for @offlineModeCache.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline mode - Showing cached data'**
+  String get offlineModeCache;
+
+  /// No description provided for @offlineModeNoCache.
+  ///
+  /// In en, this message translates to:
+  /// **'No connection - Some features unavailable'**
+  String get offlineModeNoCache;
+
+  /// No description provided for @dataFromCache.
+  ///
+  /// In en, this message translates to:
+  /// **'Showing cached data'**
+  String get dataFromCache;
 }
 
 class _AppLocalizationsDelegate

@@ -2,7 +2,7 @@
 
 import 'package:flutter/material.dart';
 import '../../data/mapa/pokearth_map_parser.dart';
-import '../../data/providers/pokemon_providers.dart';
+import '../../data/datasources/poke_api.dart';
 import '../../data/helpers/error_formatter.dart';
 import '../widgets/error_widget.dart';
 
@@ -200,8 +200,8 @@ class _PokearthMapScreenState extends State<PokearthMapScreen> {
 
   Future<List<dynamic>> _fetchLocationPokemon(String locationName) async {
     try {
-      final notifier = PokemonListNotifier();
-      return await notifier.fetchPokemonByLocation(locationName);
+      // Usar PokeApi directamente en lugar del notifier
+      return await PokeApi.fetchPokemonByLocation(locationName);
     } catch (e) {
       throw Exception('Error: $e');
     }
@@ -286,6 +286,7 @@ class _PokearthMapScreenState extends State<PokearthMapScreen> {
                   label: 'Acercar mapa',
                   button: true,
                   child: FloatingActionButton(
+                    heroTag: 'fab_map_zoom_in',
                     onPressed: _zoomIn,
                     mini: true,
                     child: const Icon(Icons.zoom_in),
@@ -300,6 +301,7 @@ class _PokearthMapScreenState extends State<PokearthMapScreen> {
                   label: 'Alejar mapa',
                   button: true,
                   child: FloatingActionButton(
+                    heroTag: 'fab_map_zoom_out',
                     onPressed: _zoomOut,
                     mini: true,
                     child: const Icon(Icons.zoom_out),
@@ -315,6 +317,7 @@ class _PokearthMapScreenState extends State<PokearthMapScreen> {
                     label: 'Restablecer zoom',
                     button: true,
                     child: FloatingActionButton(
+                      heroTag: 'fab_map_reset',
                       onPressed: _resetZoom,
                       mini: true,
                       child: const Icon(Icons.restart_alt),

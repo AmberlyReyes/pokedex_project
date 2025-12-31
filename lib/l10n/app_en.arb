@@ -154,5 +154,20 @@
       }
     }
   },
-  "noMovesWithMethod": "No moves with this method"
+  "noMovesWithMethod": "No moves with this method",
+  "sortByNumber": "By Number",
+  "sortByNameAsc": "Name (A-Z)",
+  "sortByNameDesc": "Name (Z-A)",
+  "formVariant": "Form / Variant",
+  "baseForm": "Base Form",
+  "allTypes": "All Types",
+  "allPowers": "All Powers",
+  "powerLow": "Weak (0-300)",
+  "powerMedium": "Average (301-450)",
+  "powerHigh": "Strong (451-550)",
+  "powerVeryHigh": "Pseudo-Legendary (551-599)",
+  "powerLegendary": "Legendary (600+)",
+  "offlineModeCache": "Offline mode - Showing cached data",
+  "offlineModeNoCache": "No connection - Some features unavailable",
+  "dataFromCache": "Showing cached data"
 }

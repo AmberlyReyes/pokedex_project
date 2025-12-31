@@ -24,7 +24,7 @@ class CachedPokemonList {
     required this.limit,
   });
 
-  bool isExpired({Duration maxAge = const Duration(days: 7)}) {
+  bool isExpired({Duration maxAge = const Duration(days: 1)}) {
     return DateTime.now().difference(cachedAt) > maxAge;
   }
 }

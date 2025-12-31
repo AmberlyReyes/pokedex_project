@@ -400,4 +400,50 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get noMovesWithMethod => 'No hay movimientos con este método';
+
+  @override
+  String get sortByNumber => 'Por Número';
+
+  @override
+  String get sortByNameAsc => 'Nombre (A-Z)';
+
+  @override
+  String get sortByNameDesc => 'Nombre (Z-A)';
+
+  @override
+  String get formVariant => 'Forma / Variante';
+
+  @override
+  String get baseForm => 'Forma Base';
+
+  @override
+  String get allTypes => 'Todos los Tipos';
+
+  @override
+  String get allPowers => 'Todos los Poderes';
+
+  @override
+  String get powerLow => 'Débil (0-300)';
+
+  @override
+  String get powerMedium => 'Promedio (301-450)';
+
+  @override
+  String get powerHigh => 'Fuerte (451-550)';
+
+  @override
+  String get powerVeryHigh => 'Pseudo-Legendario (551-599)';
+
+  @override
+  String get powerLegendary => 'Legendario (600+)';
+
+  @override
+  String get offlineModeCache => 'Modo offline - Mostrando datos guardados';
+
+  @override
+  String get offlineModeNoCache =>
+      'Sin conexión - Algunas funciones no disponibles';
+
+  @override
+  String get dataFromCache => 'Mostrando datos en caché';
 }

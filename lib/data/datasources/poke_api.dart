@@ -1,6 +1,3 @@
-// lib/data/datasources/poke_api.dart
-// 100% GraphQL - Sin dependencias REST
-// Con sistema de cache para modo offline
 
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:hive/hive.dart';
@@ -25,28 +22,14 @@ class PokeApi {
   }
 
   // ============================================================
-  // 1. LISTADO CON PAGINACIÓN EFICIENTE
+  // 1. LISTADO CON PAGINACIÓN - ONLINE-FIRST
   // ============================================================
   
-  /// Fetch the full list of pokemons using GraphQL with offset/limit pagination
-  /// Solo trae pokemon default (is_default: true) para evitar duplicados
-  /// CON SISTEMA DE CACHE PARA MODO OFFLINE
-  static Future<List<PokemonListItem>> fetchAllPokemons({int limit = 50, int offset = 0}) async {
-    // 1. Intentar cargar desde cache primero
-    try {
-      final cacheBox = await Hive.openBox<CachedPokemonList>('pokemon_cache');
-      final cacheKey = 'list_$offset\_$limit';
-      final cached = cacheBox.get(cacheKey);
-      
-      if (cached != null && !cached.isExpired()) {
-        print('📦 Usando lista cacheada (offset: $offset, limit: $limit)');
-        return cached.pokemons;
-      }
-    } catch (e) {
-      print('⚠️ Error leyendo cache: $e');
-    }
-
-    // 2. Si no hay cache o está expirado, consultar API
+ 
+  static Future<List<PokemonListItem>> fetchAllPokemons({
+    int limit = 50, 
+    int offset = 0,
+  }) async {
     const query = '''
       query GetPokemons(\$limit: Int!, \$offset: Int!) {
         pokemon_v2_pokemon(
@@ -62,28 +45,19 @@ class PokeApi {
     ''';
 
     try {
+      // 1. SIEMPRE intentar API primero
       final result = await _client.query(
         QueryOptions(
           document: gql(query),
           variables: {'limit': limit, 'offset': offset},
-          fetchPolicy: FetchPolicy.networkOnly, // Siempre red para datos frescos
+          fetchPolicy: FetchPolicy.networkOnly,
         ),
       );
 
       if (result.hasException) {
         print('❌ Error GraphQL: ${result.exception}');
-        // Si falla, intentar devolver cache expirado como fallback
-        try {
-          final cacheBox = await Hive.openBox<CachedPokemonList>('pokemon_cache');
-          final cacheKey = 'list_$offset\_$limit';
-          final cached = cacheBox.get(cacheKey);
-          if (cached != null) {
-            print('🔄 Usando cache expirado como fallback');
-            return cached.pokemons;
-          }
-        } catch (_) {}
-        
-        throw Exception('Error fetching pokemon list: ${result.exception}');
+        // Fallback a caché
+        return await _getFromCacheOrThrow(offset, limit, result.exception.toString());
       }
 
       final list = result.data?['pokemon_v2_pokemon'] as List<dynamic>? ?? [];
@@ -97,35 +71,47 @@ class PokeApi {
         );
       }).toList();
 
-      // 3. Guardar en cache
-      try {
-        final cacheBox = await Hive.openBox<CachedPokemonList>('pokemon_cache');
-        final cacheKey = 'list_$offset\_$limit';
-        await cacheBox.put(cacheKey, CachedPokemonList(
-          pokemons: pokemons,
-          cachedAt: DateTime.now(),
-          offset: offset,
-          limit: limit,
-        ));
-        print('💾 Lista guardada en cache');
-      } catch (e) {
-        print('⚠️ Error guardando cache: $e');
-      }
+      // 2. Actualizar caché con datos frescos
+      await _saveToCache(pokemons, offset, limit);
+      print('✅ Datos de API, caché actualizado');
 
       return pokemons;
     } catch (e) {
-      // Si falla TODO, intentar devolver CUALQUIER cache como último recurso
-      try {
-        final cacheBox = await Hive.openBox<CachedPokemonList>('pokemon_cache');
-        final cacheKey = 'list_$offset\_$limit';
-        final cached = cacheBox.get(cacheKey);
-        if (cached != null) {
-          print('🆘 Usando cache como último recurso');
-          return cached.pokemons;
-        }
-      } catch (_) {}
-      
-      throw Exception('Error fetching pokemon list: $e');
+      print('⚠️ Error de red: $e');
+      // Fallback a caché
+      return await _getFromCacheOrThrow(offset, limit, e.toString());
+    }
+  }
+  
+  /// Helper: Obtener de caché o lanzar error
+  static Future<List<PokemonListItem>> _getFromCacheOrThrow(int offset, int limit, String originalError) async {
+    try {
+      final cacheBox = await Hive.openBox<CachedPokemonList>('pokemon_cache');
+      final cacheKey = 'list_${offset}_$limit';
+      final cached = cacheBox.get(cacheKey);
+      if (cached != null) {
+        print('📦 Usando caché (offline fallback)');
+        return cached.pokemons;
+      }
+    } catch (e) {
+      print('⚠️ Error leyendo caché: $e');
+    }
+    throw Exception('Sin conexión y sin datos en caché. Error original: $originalError');
+  }
+  
+  /// Helper: Guardar en caché
+  static Future<void> _saveToCache(List<PokemonListItem> pokemons, int offset, int limit) async {
+    try {
+      final cacheBox = await Hive.openBox<CachedPokemonList>('pokemon_cache');
+      final cacheKey = 'list_${offset}_$limit';
+      await cacheBox.put(cacheKey, CachedPokemonList(
+        pokemons: pokemons,
+        cachedAt: DateTime.now(),
+        offset: offset,
+        limit: limit,
+      ));
+    } catch (e) {
+      print('⚠️ Error guardando caché: $e');
     }
   }
 
@@ -419,7 +405,80 @@ class PokeApi {
   }
 
   // ============================================================
-  // 5. ENCUENTROS POR UBICACIÓN - 
+  // 5. UBICACIONES DONDE APARECE UN POKÉMON
+  // ============================================================
+  
+  /// Obtiene las regiones/ubicaciones donde se puede encontrar un Pokémon
+  static Future<List<String>> fetchPokemonLocations(int pokemonId) async {
+    const query = '''
+      query GetPokemonLocations(\$pokemonId: Int!) {
+        pokemon_v2_encounter(
+          where: {pokemon_id: {_eq: \$pokemonId}},
+          distinct_on: [location_area_id]
+        ) {
+          pokemon_v2_locationarea {
+            name
+            pokemon_v2_location {
+              name
+              pokemon_v2_region {
+                name
+              }
+            }
+          }
+        }
+      }
+    ''';
+
+    try {
+      final result = await _client.query(
+        QueryOptions(
+          document: gql(query),
+          variables: {'pokemonId': pokemonId},
+          fetchPolicy: FetchPolicy.cacheFirst,
+        ),
+      );
+
+      if (result.hasException) {
+        return [];
+      }
+
+      final encounters = result.data?['pokemon_v2_encounter'] as List<dynamic>? ?? [];
+      final Set<String> locations = {};
+
+      for (final encounter in encounters) {
+        final locationArea = encounter['pokemon_v2_locationarea'] as Map<String, dynamic>?;
+        if (locationArea != null) {
+          final location = locationArea['pokemon_v2_location'] as Map<String, dynamic>?;
+          if (location != null) {
+            final region = location['pokemon_v2_region'] as Map<String, dynamic>?;
+            final regionName = region?['name'] as String? ?? '';
+            final locationName = location['name'] as String;
+            
+            // Formato: "Region - Location" o solo "Location" si no hay región
+            if (regionName.isNotEmpty) {
+              locations.add('${_capitalizeWords(regionName)} - ${_capitalizeWords(locationName.replaceAll('-', ' '))}');
+            } else {
+              locations.add(_capitalizeWords(locationName.replaceAll('-', ' ')));
+            }
+          }
+        }
+      }
+
+      return locations.toList()..sort();
+    } catch (e) {
+      return [];
+    }
+  }
+
+  static String _capitalizeWords(String text) {
+    return text.split(' ').map((word) {
+      if (word.isEmpty) return word;
+      return word[0].toUpperCase() + word.substring(1).toLowerCase();
+    }).join(' ');
+  }
+
+  // ============================================================
+  // 6. ENCUENTROS POR UBICACIÓN - 
   //    Consulta directa a pokemon_v2_encounter
   // ============================================================
   
@@ -647,6 +706,66 @@ class PokeApi {
       return names;
     } catch (e) {
       throw Exception('Error fetching generation $generationId: $e');
+    }
+  }
+
+  /// Fetch pokemon names by base stat total range
+  /// Rangos comunes:
+  /// - Bajo: 0-300 (débiles como Caterpie, Magikarp)
+  /// - Medio: 301-450 (promedio como Pikachu, starters básicos)
+  /// - Alto: 451-550 (fuertes como starters finales)
+  /// - Muy Alto: 551-600 (pseudo-legendarios)
+  /// - Legendario: 600+ (legendarios y míticos)
+  static Future<Set<String>> fetchPokemonNamesByPowerRange(int minStat, int maxStat) async {
+    const query = '''
+      query GetPokemonByPower {
+        pokemon_v2_pokemon(
+          where: {
+            is_default: {_eq: true}
+          }
+        ) {
+          name
+          pokemon_v2_pokemonstats_aggregate {
+            aggregate {
+              sum {
+                base_stat
+              }
+            }
+          }
+        }
+      }
+    ''';
+
+    try {
+      final result = await _client.query(
+        QueryOptions(
+          document: gql(query),
+          fetchPolicy: FetchPolicy.cacheFirst,
+        ),
+      );
+
+      if (result.hasException) {
+        throw Exception('Error fetching pokemon by power: ${result.exception}');
+      }
+
+      final pokemons = result.data?['pokemon_v2_pokemon'] as List<dynamic>? ?? [];
+      final names = <String>{};
+
+      for (final pokemon in pokemons) {
+        final aggregate = pokemon['pokemon_v2_pokemonstats_aggregate']?['aggregate'];
+        final sumData = aggregate?['sum'];
+        final totalStat = sumData?['base_stat'] as int? ?? 0;
+        
+        if (totalStat >= minStat && totalStat <= maxStat) {
+          final name = pokemon['name'] as String?;
+          if (name != null) names.add(name);
+        }
+      }
+
+      return names;
+    } catch (e) {
+      print('⚠️ Error fetching pokemon by power: $e');
+      return {};
     }
   }
 

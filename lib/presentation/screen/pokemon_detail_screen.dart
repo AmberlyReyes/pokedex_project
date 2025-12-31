@@ -32,6 +32,10 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
   List<PokemonVariant> _variants = [];
   String? _error;
   bool _loading = true;
+  
+  // Estado para variante seleccionada y shiny
+  PokemonVariant? _selectedVariant;
+  bool _isShiny = false;
 
   late AnimationController _fadeController;
   late AnimationController _slideController;
@@ -96,6 +100,8 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
         // Los datos de evoluciones y variantes ya vienen en el detalle
         _evolutions = detail.evolutions;
         _variants = detail.variants;
+        _selectedVariant = null; // Comenzar con el Pokémon base
+        _isShiny = false;
         _loading = false;
       });
 
@@ -154,6 +160,31 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
       default:
         return _capitalize(type);
     }
+  }
+
+  // Obtiene la URL del sprite según variante y shiny seleccionados
+  String _getCurrentSpriteUrl() {
+    final int id = _selectedVariant?.id ?? _detail!.id;
+    if (_isShiny) {
+      return 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/shiny/$id.png';
+    }
+    return 'https://raw.githubusercontent.com/PokeAPI/sprites/master/sprites/pokemon/other/home/$id.png';
+  }
+
+  // Obtiene los tipos según la variante seleccionada
+  List<String> _getCurrentTypes() {
+    if (_selectedVariant != null) {
+      return _selectedVariant!.types;
+    }
+    return _detail!.types;
+  }
+
+  // Obtiene el nombre actual a mostrar
+  String _getCurrentDisplayName() {
+    if (_selectedVariant != null) {
+      return '${_capitalize(_detail!.name)} (${_selectedVariant!.getDisplayName()})';
+    }
+    return _capitalize(_detail!.name);
   }
 
   @override
@@ -279,6 +310,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
                   : 'Añadir a favoritos',
               button: true,
               child: FloatingActionButton(
+                heroTag: 'fab_detail_${_detail!.id}',
                 onPressed: () async {
                   setState(() {
                     _detail!.toggleFavorite();
@@ -295,9 +327,19 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
                 backgroundColor: _detail!.isFavorite
                     ? Colors.red
                     : Theme.of(context).colorScheme.primary,
-                child: Icon(
-                  _detail!.isFavorite ? Icons.favorite : Icons.favorite_border,
-                  color: Colors.white,
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 120),
+                  transitionBuilder: (child, animation) {
+                    return ScaleTransition(
+                      scale: animation,
+                      child: child,
+                    );
+                  },
+                  child: Icon(
+                    _detail!.isFavorite ? Icons.favorite : Icons.favorite_border,
+                    key: ValueKey(_detail!.isFavorite),
+                    color: Colors.white,
+                  ),
                 ),
               ),
             ),
@@ -311,19 +353,79 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_detail!.spriteUrl.isNotEmpty)
-            Hero(
-              tag: 'pokemon_${_detail!.id}',
-              child: Center(
-                child: Semantics(
-                  label: 'Imagen de ${_capitalize(_detail!.name)}',
-                  image: true,
-                  child: _FloatingPokemonImage(
-                    imageUrl: _detail!.spriteUrl,
+          // Imagen principal con soporte para variantes y shiny
+          Stack(
+            alignment: Alignment.center,
+            children: [
+              Hero(
+                tag: 'pokemon_${_detail!.id}',
+                child: Center(
+                  child: Semantics(
+                    label: 'Imagen de ${_getCurrentDisplayName()}${_isShiny ? ' (Shiny)' : ''}',
+                    image: true,
+                    child: _FloatingPokemonImage(
+                      key: ValueKey('${_selectedVariant?.id ?? _detail!.id}_$_isShiny'),
+                      imageUrl: _getCurrentSpriteUrl(),
+                    ),
                   ),
                 ),
               ),
-            ),
+              // Toggle Shiny en la esquina superior derecha
+              Positioned(
+                top: 0,
+                right: 0,
+                child: Tooltip(
+                  message: _isShiny ? 'Ver normal' : 'Ver Shiny',
+                  child: Material(
+                    color: Colors.transparent,
+                    child: InkWell(
+                      borderRadius: BorderRadius.circular(20),
+                      onTap: () {
+                        setState(() {
+                          _isShiny = !_isShiny;
+                        });
+                      },
+                      child: Container(
+                        padding: const EdgeInsets.all(8),
+                        decoration: BoxDecoration(
+                          color: _isShiny 
+                              ? Colors.amber.withValues(alpha: 0.9)
+                              : Colors.grey.withValues(alpha: 0.7),
+                          borderRadius: BorderRadius.circular(20),
+                          boxShadow: [
+                            BoxShadow(
+                              color: Colors.black.withValues(alpha: 0.2),
+                              blurRadius: 4,
+                              offset: const Offset(0, 2),
+                            ),
+                          ],
+                        ),
+                        child: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            Icon(
+                              Icons.auto_awesome,
+                              size: 18,
+                              color: _isShiny ? Colors.white : Colors.white70,
+                            ),
+                            const SizedBox(width: 4),
+                            Text(
+                              'Shiny',
+                              style: TextStyle(
+                                fontSize: 12,
+                                fontWeight: FontWeight.bold,
+                                color: _isShiny ? Colors.white : Colors.white70,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          ),
           const SizedBox(height: 12),
           _AnimatedDetailSection(
             delay: const Duration(milliseconds: 400),
@@ -336,13 +438,13 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
           ),
           const SizedBox(height: 8),
 
-          // types
+          // types - cambian según la variante seleccionada
           _AnimatedDetailSection(
             delay: const Duration(milliseconds: 600),
             child: Center(
               child: Wrap(
                 spacing: 8,
-                children: _detail!.types
+                children: _getCurrentTypes()
                     .map((t) => Chip(
                       label: Text(_translateType(t)),
                     ))
@@ -386,6 +488,15 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
               ],
             ),
           ),
+
+          // Dropdown de variantes (si hay variantes disponibles) - DESPUÉS de info básica
+          if (_variants.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _AnimatedDetailSection(
+              delay: const Duration(milliseconds: 850),
+              child: _buildVariantDropdown(),
+            ),
+          ],
           const SizedBox(height: 16),
         ],
       ),
@@ -627,110 +738,6 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
             ),
           ),
           const SizedBox(height: 24),
-
-          // Variants section (Mega, Gigantamax, etc.)
-          if (_variants.isNotEmpty)
-            _AnimatedDetailSection(
-              delay: const Duration(milliseconds: 800),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text('Variantes',
-                      style: Theme.of(context).textTheme.titleMedium?.copyWith(color: Colors.black)),
-                  const SizedBox(height: 8),
-                  SizedBox(
-                    height: 160,
-                    child: ListView.separated(
-                      scrollDirection: Axis.horizontal,
-                      itemCount: _variants.length,
-                      separatorBuilder: (_, __) => const SizedBox(width: 8),
-                      itemBuilder: (context, i) {
-                        final variant = _variants[i];
-                        return Container(
-                          padding: const EdgeInsets.all(8),
-                          decoration: BoxDecoration(
-                            border: Border.all(
-                              color: _getVariantColor(variant.variantType),
-                              width: 2,
-                            ),
-                            borderRadius: BorderRadius.circular(12),
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            mainAxisAlignment: MainAxisAlignment.center,
-                            children: [
-                              ClipRRect(
-                                borderRadius: BorderRadius.circular(12),
-                                child: CachedNetworkImage(
-                                  imageUrl: variant.imageUrl,
-                                  width: 80,
-                                  height: 80,
-                                  fit: BoxFit.contain,
-                                  placeholder: (context, url) => const SizedBox(
-                                    width: 80,
-                                    height: 80,
-                                    child: Center(
-                                      child: CircularProgressIndicator(strokeWidth: 2),
-                                    ),
-                                  ),
-                                  errorWidget: (context, url, error) =>
-                                      const Icon(Icons.image_not_supported, size: 50),
-                                ),
-                              ),
-                              const SizedBox(height: 6),
-                              Container(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 6,
-                                  vertical: 2,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: _getVariantColor(variant.variantType),
-                                  borderRadius: BorderRadius.circular(6),
-                                ),
-                                child: Text(
-                                  variant.getDisplayName(),
-                                  style: const TextStyle(
-                                    fontWeight: FontWeight.bold,
-                                    fontSize: 11,
-                                    color: Colors.white,
-                                  ),
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              Wrap(
-                                spacing: 2,
-                                children: variant.types.map((type) {
-                                  return Container(
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 4,
-                                      vertical: 2,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: Theme.of(context).colorScheme.primaryContainer,
-                                      borderRadius: BorderRadius.circular(4),
-                                    ),
-                                    child: Text(
-                                      _translateType(type),
-                                      style: TextStyle(
-                                        fontSize: 9,
-                                        fontWeight: FontWeight.bold,
-                                        color:  Color(0xFF00D9FF),
-                                      ),
-                                    ),
-                                  );
-                                }).toList(),
-                              ),
-                            ],
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ],
-              ),
-            ),
         ],
       ),
     );
@@ -751,6 +758,194 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
       default:
         return Colors.grey;
     }
+  }
+
+  Widget _buildVariantDropdown() {
+    final l10n = AppLocalizations.of(context)!;
+    return Card(
+      elevation: 2,
+      color: const Color.fromARGB(255, 214, 212, 212),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                const Icon(Icons.category, color: Color.fromARGB(255, 0, 0, 0), size: 20),
+                const SizedBox(width: 8),
+                Text(
+                  l10n.formVariant,
+                  style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                    color: const Color.fromARGB(255, 0, 0, 0),
+                    fontWeight: FontWeight.bold,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 8),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.symmetric(horizontal: 12),
+              decoration: BoxDecoration(
+                color: Colors.white.withValues(alpha: 0.15),
+                border: Border.all(color: Colors.white.withValues(alpha: 0.3)),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: DropdownButtonHideUnderline(
+                child: DropdownButton<PokemonVariant?>(
+                  value: _selectedVariant,
+                  isExpanded: true,
+                  dropdownColor: Colors.white70,
+                  icon: const Icon(Icons.arrow_drop_down, color: Color.fromARGB(255, 0, 0, 0)),
+                  hint: Row(
+                    children: [
+                      Container(
+                        width: 12,
+                        height: 12,
+                        decoration: const BoxDecoration(
+                          color: Colors.white70,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        l10n.baseForm,
+                        style: const TextStyle(color: Color.fromARGB(255, 0, 0, 0)),
+                      ),
+                    ],
+                  ),
+                  items: [
+                    // Opción para volver a la forma base
+                    DropdownMenuItem<PokemonVariant?>(
+                      value: null,
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 12,
+                            height: 12,
+                            decoration: const BoxDecoration(
+                              color: Color.fromARGB(179, 0, 0, 0),
+                              shape: BoxShape.circle,
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Text(l10n.baseForm, style: const TextStyle(color: Color.fromARGB(255, 0, 0, 0))),
+                        ],
+                      ),
+                    ),
+                    // Variantes disponibles
+                    ..._variants.map((variant) {
+                      return DropdownMenuItem<PokemonVariant?>(
+                        value: variant,
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 12,
+                              height: 12,
+                              decoration: BoxDecoration(
+                                color: Colors.white70,
+                                shape: BoxShape.circle,
+                              ),
+                            ),
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Text(
+                                variant.getDisplayName(),
+                                style: const TextStyle(color: Color.fromARGB(255, 0, 0, 0)),
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            // Mostrar tipos de la variante
+                            ...variant.types.take(2).map((type) {
+                              return Container(
+                                margin: const EdgeInsets.only(left: 4),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 6,
+                                  vertical: 2,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: Colors.white.withValues(alpha: 0.2),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                                child: Text(
+                                  _translateType(type),
+                                  style: const TextStyle(
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.bold,
+                                    color: Color.fromARGB(255, 0, 0, 0),
+                                  ),
+                                ),
+                              );
+                            }),
+                          ],
+                        ),
+                      );
+                    }),
+                  ],
+                  onChanged: (PokemonVariant? newVariant) {
+                    setState(() {
+                      _selectedVariant = newVariant;
+                    });
+                  },
+                ),
+              ),
+            ),
+            // Información adicional si hay una variante seleccionada
+            if (_selectedVariant != null) ...[
+              const SizedBox(height: 8),
+              Container(
+                padding: const EdgeInsets.all(8),
+                decoration: BoxDecoration(
+                  color: Colors.white.withValues(alpha: 0.15),
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(
+                    color: Colors.white.withValues(alpha: 0.3),
+                  ),
+                ),
+                child: Row(
+                  children: [
+                    CachedNetworkImage(
+                      imageUrl: _selectedVariant!.imageUrl,
+                      width: 40,
+                      height: 40,
+                      placeholder: (context, url) => const SizedBox(
+                        width: 40,
+                        height: 40,
+                        child: Center(child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white)),
+                      ),
+                      errorWidget: (context, url, error) => const Icon(Icons.error, size: 40, color: Colors.white),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            _selectedVariant!.getDisplayName(),
+                            style: const TextStyle(
+                              fontWeight: FontWeight.bold,
+                              color: Colors.white,
+                            ),
+                          ),
+                          Text(
+                            'Tipos: ${_selectedVariant!.types.map(_translateType).join(', ')}',
+                            style: const TextStyle(
+                              fontSize: 12,
+                              color: Colors.white70,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
+    );
   }
 
   Widget _buildStatsTab() {
@@ -1297,7 +1492,7 @@ class _AnimatedDetailSectionState extends State<_AnimatedDetailSection>
 class _FloatingPokemonImage extends StatefulWidget {
   final String imageUrl;
 
-  const _FloatingPokemonImage({required this.imageUrl});
+  const _FloatingPokemonImage({super.key, required this.imageUrl});
 
   @override
   State<_FloatingPokemonImage> createState() => _FloatingPokemonImageState();
