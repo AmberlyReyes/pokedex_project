@@ -17,7 +17,7 @@ class PokearthArea {
 class PokearthMap {
   static Future<List<PokearthArea>> loadAreas() async {
     // 1. Carga el archivo HTML
-    final html = await rootBundle.loadString('assets/ubicaicones.html');
+    final html = await rootBundle.loadString('assets/ubicaciones.html');
 
     // 2. Parsea usando expresiones regulares (más tolerante con HTML)
     final areas = <PokearthArea>[];
