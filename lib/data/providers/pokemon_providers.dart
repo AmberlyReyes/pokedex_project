@@ -137,66 +137,24 @@ class PokemonListNotifier extends StateNotifier<AsyncValue<List<PokemonListItem>
     }
 
     try {
-      List<PokemonListItem> filtered = [];
-      int localOffset = _offset;
-      bool keepFetching = true;
-
-      while (filtered.length < _pageSize && keepFetching) {
-        final newPokemons = await PokeApi.fetchAllPokemons(limit: _pageSize, offset: localOffset);
-        
-        if (newPokemons.isEmpty) {
-          keepFetching = false;
-          _hasMore = false;
-          break;
-        }
-        localOffset += newPokemons.length;
-
-        List<PokemonListItem> toAdd = newPokemons;
-        
-        // Filtrado por generación
-        if (_filterGeneration != null) {
-          final genNames = await PokeApi.fetchPokemonNamesByGeneration(_filterGeneration!);
-          toAdd = toAdd.where((p) => genNames.contains(p.name)).toList();
-        }
-        
-        // Filtrado por tipos
-        if (_filterTypes != null && _filterTypes!.isNotEmpty) {
-          for (final t in _filterTypes!) {
-            final typeNames = await PokeApi.fetchPokemonNamesByType(t);
-            toAdd = toAdd.where((p) => typeNames.contains(p.name)).toList();
-          }
-        }
-        
-        // Filtrado por poder (base stat total)
-        if (_filterPower != null) {
-          final powerNames = await PokeApi.fetchPokemonNamesByPowerRange(
-            _filterPower!.minStat, 
-            _filterPower!.maxStat
-          );
-          toAdd = toAdd.where((p) => powerNames.contains(p.name)).toList();
-        }
-        
-        // Filtrado por búsqueda (respeta filtros activos)
-        if (_searchQuery != null && _searchQuery!.trim().isNotEmpty) {
-          final q = _searchQuery!.trim().toLowerCase();
-          final numericId = int.tryParse(q);
-          toAdd = toAdd.where((p) {
-            final matchName = p.name.toLowerCase().contains(q);
-            final matchId = numericId != null && p.id == numericId;
-            return matchName || matchId;
-          }).toList();
-        }
-        
-        filtered.addAll(toAdd);
-        if (newPokemons.length < _pageSize) {
-          keepFetching = false;
-          _hasMore = false;
-        }
+      // 🚀 UNA SOLA LLAMADA con todos los filtros
+      final newPokemons = await PokeApi.fetchPokemonsWithFilters(
+        limit: _pageSize,
+        offset: _offset,
+        generationId: _filterGeneration,
+        types: _filterTypes,
+        minPower: _filterPower?.minStat,
+        maxPower: _filterPower?.maxStat,
+        searchQuery: _searchQuery,
+      );
+      
+      if (newPokemons.isEmpty) {
+        _hasMore = false;
+      } else {
+        _offset += newPokemons.length;
+        _allPokemons.addAll(newPokemons);
       }
 
-      _offset = localOffset;
-      _allPokemons.addAll(filtered);
-      
       // Aplicar ordenación
       final sortedList = _sortList(_allPokemons);
       state = AsyncValue.data(sortedList);
@@ -252,9 +210,15 @@ class PokemonListNotifier extends StateNotifier<AsyncValue<List<PokemonListItem>
     }
   }
 
-  /// Búsqueda que RESPETA filtros activos (generación, tipos, poder)
-  Future<void> searchWithFilters(String query) async {
-    _searchQuery = query.trim().isEmpty ? null : query.trim();
+  /// Search globally across all pokemons (RESPETA filtros activos)
+  Future<void> globalSearch(String query) async {
+    if (query.trim().isEmpty) {
+      await refreshPokemons();
+      return;
+    }
+    
+    // Reutiliza fetchPokemons con el query de búsqueda
+    _searchQuery = query.trim();
     _hasMore = true;
     _offset = 0;
     _allPokemons.clear();
@@ -266,92 +230,6 @@ class PokemonListNotifier extends StateNotifier<AsyncValue<List<PokemonListItem>
       power: _filterPower,
       searchQuery: _searchQuery,
     );
-  }
-
-  /// Search globally across all pokemons (RESPETA filtros activos)
-  Future<void> globalSearch(String query) async {
-    if (query.trim().isEmpty) {
-      await refreshPokemons();
-      return;
-    }
-
-    _isFetching = true;
-    _searchQuery = query;
-    state = const AsyncValue.loading();
-
-    try {
-      List<PokemonListItem> results = [];
-
-      final nameResults = await PokeApi.searchPokemonByName(query);
-      
-      // Aplicar filtros activos a los resultados de búsqueda
-      List<PokemonListItem> filteredResults = nameResults;
-      
-      if (_filterGeneration != null) {
-        final genNames = await PokeApi.fetchPokemonNamesByGeneration(_filterGeneration!);
-        filteredResults = filteredResults.where((p) => genNames.contains(p.name)).toList();
-      }
-      
-      if (_filterTypes != null && _filterTypes!.isNotEmpty) {
-        for (final t in _filterTypes!) {
-          final typeNames = await PokeApi.fetchPokemonNamesByType(t);
-          filteredResults = filteredResults.where((p) => typeNames.contains(p.name)).toList();
-        }
-      }
-      
-      if (_filterPower != null) {
-        final powerNames = await PokeApi.fetchPokemonNamesByPowerRange(
-          _filterPower!.minStat, 
-          _filterPower!.maxStat
-        );
-        filteredResults = filteredResults.where((p) => powerNames.contains(p.name)).toList();
-      }
-      
-      results.addAll(filteredResults);
-
-      final numericId = int.tryParse(query.trim());
-      if (numericId != null) {
-        final idResult = await PokeApi.searchPokemonById(numericId);
-        if (idResult != null && !results.any((p) => p.id == idResult.id)) {
-          // Verificar si cumple con los filtros activos
-          bool passesFilters = true;
-          
-          if (_filterGeneration != null) {
-            final genNames = await PokeApi.fetchPokemonNamesByGeneration(_filterGeneration!);
-            passesFilters = genNames.contains(idResult.name);
-          }
-          
-          if (passesFilters && _filterTypes != null && _filterTypes!.isNotEmpty) {
-            for (final t in _filterTypes!) {
-              final typeNames = await PokeApi.fetchPokemonNamesByType(t);
-              if (!typeNames.contains(idResult.name)) {
-                passesFilters = false;
-                break;
-              }
-            }
-          }
-          
-          if (passesFilters && _filterPower != null) {
-            final powerNames = await PokeApi.fetchPokemonNamesByPowerRange(
-              _filterPower!.minStat, 
-              _filterPower!.maxStat
-            );
-            passesFilters = powerNames.contains(idResult.name);
-          }
-          
-          if (passesFilters) {
-            results.add(idResult);
-          }
-        }
-      }
-
-      _allPokemons = _sortList(results);
-      state = AsyncValue.data(_allPokemons);
-    } catch (e, st) {
-      state = AsyncValue.error(e, st);
-    } finally {
-      _isFetching = false;
-    }
   }
 
   /// Fetch pokemon encounters by location

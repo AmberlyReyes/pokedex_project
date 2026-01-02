@@ -9,6 +9,7 @@ class ErrorMessageWidget extends StatelessWidget {
   final IconData icon;
   final VoidCallback onRetry;
   final Color? iconColor;
+  final Color? messageColor;
 
   const ErrorMessageWidget({
     super.key,
@@ -17,6 +18,7 @@ class ErrorMessageWidget extends StatelessWidget {
     required this.onRetry,
     this.icon = Icons.error_outline,
     this.iconColor,
+    this.messageColor,
   });
 
   @override
@@ -40,7 +42,7 @@ class ErrorMessageWidget extends StatelessWidget {
               style: GoogleFonts.limelight(
                 fontSize: 28,
                 fontWeight: FontWeight.w600,
-                color: Colors.white,
+                color: const Color.fromARGB(255, 0, 208, 255),
                 letterSpacing: 1.2,
               ),
               textAlign: TextAlign.center,
@@ -49,9 +51,9 @@ class ErrorMessageWidget extends StatelessWidget {
             // Mensaje descriptivo
             Text(
               message,
-              style: const TextStyle(
+              style: TextStyle(
                 fontSize: 16,
-                color: Colors.white70,
+                color: messageColor ?? const Color.fromARGB(179, 0, 0, 0),
                 height: 1.5,
                 letterSpacing: 0.3,
               ),

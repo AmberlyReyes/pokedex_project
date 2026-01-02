@@ -149,6 +149,7 @@ class _TriviaScreenState extends ConsumerState<TriviaScreen> {
         message: '\nVerifica tu conexión y vuelve a intentarlo.',
         icon: Icons.wifi_off,
         iconColor: Colors.orange[400],
+        messageColor: Colors.white,
         onRetry: () => ref.read(triviaProvider.notifier).startGame(),
       ),
     );

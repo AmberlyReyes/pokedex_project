@@ -86,7 +86,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
       _error = null;
     });
     try {
-      // 🚀 AHORA ES SOLO UNA LLAMADA - La super query trae todo
+      //  AHORA ES SOLO UNA LLAMADA - La super query trae todo
       final detail = await PokeApi.fetchPokemonDetail(widget.id);
 
       // Verificar si el Pokémon es favorito

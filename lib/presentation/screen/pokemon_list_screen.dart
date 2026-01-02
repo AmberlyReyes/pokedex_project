@@ -1,4 +1,5 @@
 
+import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -38,7 +39,7 @@ class _PokemonListScreenState extends ConsumerState<PokemonListScreen> {
   List<PokemonListItem> _filtered = [];
   final TextEditingController _searchController = TextEditingController();
   final ScrollController _scrollController = ScrollController();
-  final Map<int, List<String>> _typesCache = {};
+  Timer? _debounce;
 
   // Claves de persistencia
   static const _prefsKeyGen = 'pokedez_filter_generation';
@@ -126,6 +127,7 @@ class _PokemonListScreenState extends ConsumerState<PokemonListScreen> {
 
   @override
   void dispose() {
+    _debounce?.cancel();
     _searchController.removeListener(_onSearchChanged);
     _searchController.dispose();
     _scrollController.removeListener(_onScroll);
@@ -135,18 +137,21 @@ class _PokemonListScreenState extends ConsumerState<PokemonListScreen> {
     super.dispose();
   }
 
-  /// Búsqueda que RESPETA filtros activos
+  /// Búsqueda que RESPETA filtros activos con debounce de 400ms
   void _onSearchChanged() {
-    final query = _searchController.text.trim();
-    
-    if (query.isEmpty) {
-      // Limpiar búsqueda en el provider y recargar lista completa
-      ref.read(pokemonListProvider.notifier).clearSearch();
-      _applyCurrentFilters();
-    } else {
-      // Búsqueda global que respeta filtros
-      ref.read(pokemonListProvider.notifier).globalSearch(query);
-    }
+    _debounce?.cancel();
+    _debounce = Timer(const Duration(milliseconds: 400), () {
+      final query = _searchController.text.trim();
+      
+      if (query.isEmpty) {
+        // Limpiar búsqueda en el provider y recargar lista completa
+        ref.read(pokemonListProvider.notifier).clearSearch();
+        _applyCurrentFilters();
+      } else {
+        // Búsqueda global que respeta filtros
+        ref.read(pokemonListProvider.notifier).globalSearch(query);
+      }
+    });
   }
 
   void _onEnterPressed() {
@@ -375,13 +380,7 @@ class _PokemonListScreenState extends ConsumerState<PokemonListScreen> {
                       final pokemon = _filtered[index];
                       return AnimatedListItem(
                         index: index,
-                        child: _PokemonCard(
-                          pokemon: pokemon,
-                          typesCache: _typesCache,
-                          onUpdateCache: (id, types) {
-                            setState(() => _typesCache[id] = types);
-                          },
-                        ),
+                        child: _PokemonCard(pokemon: pokemon),
                       );
                     },
                   ),
@@ -840,14 +839,8 @@ class _PokemonListScreenState extends ConsumerState<PokemonListScreen> {
 /// Widget for Pokemon card in grid layout
 class _PokemonCard extends StatefulWidget {
   final PokemonListItem pokemon;
-  final Map<int, List<String>> typesCache;
-  final Function(int, List<String>) onUpdateCache;
 
-  const _PokemonCard({
-    required this.pokemon,
-    required this.typesCache,
-    required this.onUpdateCache,
-  });
+  const _PokemonCard({required this.pokemon});
 
   @override
   State<_PokemonCard> createState() => _PokemonCardState();
@@ -970,123 +963,4 @@ class _PokemonCardState extends State<_PokemonCard>
 
   String _capitalize(String s) =>
       s.isEmpty ? s : (s[0].toUpperCase() + s.substring(1));
-}
-
-/// Widget for individual Pokemon list item with tap animation
-class _PokemonListTile extends StatefulWidget {
-  final PokemonListItem pokemon;
-  final Map<int, List<String>> typesCache;
-  final Function(int, List<String>) onUpdateCache;
-
-  const _PokemonListTile({
-    required this.pokemon,
-    required this.typesCache,
-    required this.onUpdateCache,
-  });
-
-  @override
-  State<_PokemonListTile> createState() => _PokemonListTileState();
-}
-
-class _PokemonListTileState extends State<_PokemonListTile>
-    with SingleTickerProviderStateMixin {
-  late AnimationController _scaleController;
-  late Animation<double> _scaleAnimation;
-
-  @override
-  void initState() {
-    super.initState();
-    _scaleController = AnimationController(
-      duration: const Duration(milliseconds: 150),
-      vsync: this,
-    );
-    _scaleAnimation = Tween<double>(begin: 1.0, end: 0.95).animate(
-      CurvedAnimation(parent: _scaleController, curve: Curves.easeInOut),
-    );
-  }
-
-  @override
-  void dispose() {
-    _scaleController.dispose();
-    super.dispose();
-  }
-
-  String _capitalize(String s) =>
-      s.isEmpty ? s : (s[0].toUpperCase() + s.substring(1));
-
-  @override
-  Widget build(BuildContext context) {
-    return ScaleTransition(
-      scale: _scaleAnimation,
-      child: Card(
-        margin: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
-        child: InkWell(
-          onTapDown: (_) => _scaleController.forward(),
-          onTapUp: (_) => _scaleController.reverse(),
-          onTapCancel: () => _scaleController.reverse(),
-          onTap: () {
-            Navigator.push(
-              context,
-              PageTransitions.fade(PokemonDetailScreen(
-                id: widget.pokemon.id,
-                name: widget.pokemon.name,
-              )),
-            );
-          },
-          child: ListTile(
-            leading: Hero(
-              tag: 'pokemon-${widget.pokemon.id}',
-              child: Image.network(
-                widget.pokemon.imageUrl,
-                width: 50,
-                height: 50,
-                fit: BoxFit.contain,
-                loadingBuilder: (context, child, progress) {
-                  return progress == null ? child : const Center(child: CircularProgressIndicator());
-                },
-                errorBuilder: (context, error, stackTrace) {
-                  return const Icon(Icons.error_outline, color: Colors.red);
-                },
-              ),
-            ),
-            title: Text(
-              _capitalize(widget.pokemon.name),
-              style: GoogleFonts.poppins(fontWeight: FontWeight.bold),
-            ),
-            subtitle: Text(
-              '#${widget.pokemon.id.toString().padLeft(3, '0')}',
-              style: GoogleFonts.poppins(color: Colors.grey[600]),
-            ),
-            trailing: FutureBuilder<List<String>>(
-              future: Future.value(widget.typesCache[widget.pokemon.id] ?? PokeApi.fetchPokemonTypes(widget.pokemon.id)),
-              builder: (context, snapshot) {
-                if (snapshot.connectionState == ConnectionState.waiting && !widget.typesCache.containsKey(widget.pokemon.id)) {
-                  return const SizedBox(width: 20, height: 20, child: CircularProgressIndicator(strokeWidth: 2));
-                }
-                if (snapshot.hasError || !snapshot.hasData || snapshot.data!.isEmpty) {
-                  return const SizedBox.shrink();
-                }
-                final types = snapshot.data!;
-                if (!widget.typesCache.containsKey(widget.pokemon.id)) {
-                  widget.onUpdateCache(widget.pokemon.id, types);
-                }
-                return Wrap(
-                  spacing: 4,
-                  children: types.map((type) => Chip(
-                        label: Text(
-                          _capitalize(type),
-                          style: GoogleFonts.poppins(fontSize: 10, color: Colors.white),
-                        ),
-                        backgroundColor: Colors.black.withOpacity(0.3),
-                        padding: const EdgeInsets.symmetric(horizontal: 6),
-                        materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                      )).toList(),
-                );
-              },
-            ),
-          ),
-        ),
-      ),
-    );
-  }
 }

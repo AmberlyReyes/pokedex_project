@@ -20,19 +20,22 @@ class PokemonListItemAdapter extends TypeAdapter<PokemonListItem> {
       name: fields[0] as String,
       id: fields[1] as int,
       imageUrl: fields[2] as String,
+      types: (fields[3] as List).cast<String>(),
     );
   }
 
   @override
   void write(BinaryWriter writer, PokemonListItem obj) {
     writer
-      ..writeByte(3)
+      ..writeByte(4)
       ..writeByte(0)
       ..write(obj.name)
       ..writeByte(1)
       ..write(obj.id)
       ..writeByte(2)
-      ..write(obj.imageUrl);
+      ..write(obj.imageUrl)
+      ..writeByte(3)
+      ..write(obj.types);
   }
 
   @override

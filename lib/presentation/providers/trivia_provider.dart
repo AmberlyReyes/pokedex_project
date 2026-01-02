@@ -86,24 +86,8 @@ class TriviaNotifier extends StateNotifier<TriviaState> {
         randomIds.add(_random.nextInt(1024) + 1);
       }
 
-      // Fetch los 4 Pokémon
-      final pokemonList = <PokemonListItem>[];
-      int failedAttempts = 0;
-      
-      for (final id in randomIds) {
-        try {
-          final pokemon = await PokeApi.searchPokemonById(id);
-          if (pokemon != null) {
-            pokemonList.add(pokemon);
-          }
-        } catch (e) {
-          failedAttempts++;
-          // Si fallan todos, es probable que no haya internet
-          if (failedAttempts >= randomIds.length) {
-            throw Exception('No se pudo conectar al servidor. Verifica tu conexión a internet.');
-          }
-        }
-      }
+      //  UNA SOLA LLAMADA para obtener los 4 pokémon
+      final pokemonList = await PokeApi.fetchPokemonsByIds(randomIds.toList());
 
       if (pokemonList.length < 3) {
         // Si no hay suficientes Pokémon después de intentar, es un error de red
