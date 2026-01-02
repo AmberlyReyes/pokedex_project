@@ -137,7 +137,7 @@ class PokemonListNotifier extends StateNotifier<AsyncValue<List<PokemonListItem>
     }
 
     try {
-      // 🚀 UNA SOLA LLAMADA con todos los filtros
+      //  UNA SOLA LLAMADA con todos los filtros
       final newPokemons = await PokeApi.fetchPokemonsWithFilters(
         limit: _pageSize,
         offset: _offset,

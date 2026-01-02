@@ -10,7 +10,7 @@ class AnimatedListItem extends StatefulWidget {
     super.key,
     required this.child,
     required this.index,
-    this.delay = const Duration(milliseconds: 80), // Más lento
+    this.delay = const Duration(milliseconds: 20), // Más lento
   });
 
   @override

@@ -52,9 +52,8 @@
 ## 📊 Estrategias para Maximizar Puntos
 
 1. **Responde rápido**: Cada segundo cuenta (10 puntos × segundo)
-2. **Estudia tipos comunes**: Pikachu, Charizard, Mewtwo aparecen frecuentemente
-3. **No pierdas vidas**: Mantén las 5 para "Racha de Fuego"
-4. **Apunta a combo perfecto**: 
+2. **No pierdas vidas**: Mantén las 5 para "Racha de Fuego"
+3. **Apunta a combo perfecto**: 
    - 15 segundos restantes = 250 puntos (100 + 150)
    - 10 segundos restantes = 200 puntos (100 + 100)
    - 5 segundos restantes = 150 puntos (100 + 50)

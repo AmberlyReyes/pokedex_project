@@ -29,18 +29,7 @@ void main() async {
   Hive.registerAdapter(PokemonVariantAdapter());
   Hive.registerAdapter(PokemonListItemAdapter());
   Hive.registerAdapter(CachedPokemonListAdapter());
-<<<<<<< HEAD
-  
-  // Limpiar datos antiguos incompatibles con nueva estructura
-  //  Eliminar estas líneas después de la primera ejecución exitosa
- /* try {
-    await Hive.deleteBoxFromDisk('favorites');
-    await Hive.deleteBoxFromDisk('pokemon_cache');
-  } catch (_) {}*/
-  
-=======
 
->>>>>>> 34765a8bc43fb7774b1432645456d580ffce66a9
   await Hive.openBox<PokemonDetail>('favorites');
   await Hive.openBox<CachedPokemonList>('pokemon_cache');
 

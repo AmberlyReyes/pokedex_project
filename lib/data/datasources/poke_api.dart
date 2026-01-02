@@ -1,4 +1,3 @@
-
 import 'package:graphql_flutter/graphql_flutter.dart';
 import 'package:hive/hive.dart';
 import '../models/pokemon_list_item.dart';
@@ -22,7 +21,6 @@ class PokeApi {
   // ============================================================
   // 1. LISTADO CON PAGINACIÓN Y FILTROS - UNA SOLA QUERY
   // ============================================================
-  
   /// Obtiene pokémon con filtros opcionales en UNA SOLA query GraphQL
   /// Incluye tipos para evitar llamadas adicionales en las cards
   static Future<List<PokemonListItem>> fetchPokemonsWithFilters({
