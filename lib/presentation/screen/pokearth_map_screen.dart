@@ -44,7 +44,7 @@ class _PokearthMapScreenState extends State<PokearthMapScreen> {
     // Obtener el tamaño renderizado de la imagen en el widget
     final renderedSize = renderBox.size;
     
-    // Tamaño original de la imagen (según el HTML)
+    // Tamaño original de la imagen 
     const double originalWidth = 1100.0;
     const double originalHeight = 850.0;
     
@@ -85,10 +85,10 @@ class _PokearthMapScreenState extends State<PokearthMapScreen> {
         content: FutureBuilder(
           future: _fetchLocationPokemon(locationName),
           builder: (context, snapshot) {
+            // Manejo de estados de carga y error
             if (snapshot.connectionState == ConnectionState.waiting) {
               return const Center(child: CircularProgressIndicator());
             }
-
             if (snapshot.hasError) {
               final errorData = ErrorFormatter.format(snapshot.error, showDetails: false);
               return Column(
@@ -278,7 +278,7 @@ class _PokearthMapScreenState extends State<PokearthMapScreen> {
                   ),
                 ),
               ),
-              // Botón de zoom in (abajo a la derecha)
+              // Botón de zoom in 
               Positioned(
                 bottom: 80,
                 right: 16,
@@ -293,7 +293,7 @@ class _PokearthMapScreenState extends State<PokearthMapScreen> {
                   ),
                 ),
               ),
-              // Botón de zoom out (arriba del anterior)
+              // Botón de zoom out 
               Positioned(
                 bottom: 20,
                 right: 16,

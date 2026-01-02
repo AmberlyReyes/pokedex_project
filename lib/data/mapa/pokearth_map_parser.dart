@@ -2,7 +2,7 @@ import 'dart:ui';
 import 'package:flutter/services.dart' show rootBundle;
 
 class PokearthArea {
-  final Rect coordinates; // left, top, right, bottom
+  final Rect coordinates; // los lados del rectangulo
   final String title;
 
   PokearthArea({
@@ -16,32 +16,36 @@ class PokearthArea {
 
 class PokearthMap {
   static Future<List<PokearthArea>> loadAreas() async {
-    // 1. Carga el archivo HTML
+    // Carga el archivo HTML
     final html = await rootBundle.loadString('assets/ubicaciones.html');
 
-    // 2. Parsea usando expresiones regulares (más tolerante con HTML)
+    // Se crea donde se guardaran las areas
     final areas = <PokearthArea>[];
 
-    // Patrón para extraer etiquetas <area>
+    // Extrae todo lo que tengas las etiquetas <area> del HTML
     final areaPattern = RegExp(
       r'<area\s+([^>]+)>',
       multiLine: true,
     );
 
+    // Itera sobre cada coincidencia encontrada
     for (final match in areaPattern.allMatches(html)) {
       final attributes = match.group(1) ?? '';
 
-      // Extraer atributos
+      // Extraer atributos title y coords
       final titleMatch = RegExp(r'title="([^"]*)"').firstMatch(attributes);
       final coordsMatch = RegExp(r'coords="([^"]*)"').firstMatch(attributes);
 
+      // Si encuentra un atrubito nulo salta al siguiente
       if (titleMatch == null || coordsMatch == null) {
         continue;
       }
 
+      // Obtener valores de los atributos
       final title = titleMatch.group(1) ?? '';
       final coordsStr = coordsMatch.group(1) ?? '';
 
+      // Si las coordenadas estan vacias salta al siguiente
       if (coordsStr.isEmpty) continue;
 
       // Parsear coordenadas
@@ -50,6 +54,7 @@ class PokearthMap {
           .map((e) => int.tryParse(e.trim()))
           .toList();
 
+      // Si alguna de las coordenadas no son validas salta al siguiente
       if (coords.length != 4 || coords.any((e) => e == null)) continue;
 
       final left = coords[0]!.toDouble();
