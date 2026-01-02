@@ -2,8 +2,11 @@ import 'package:flutter/material.dart';
 
 /// Widget que anima la aparición de un item de lista con fade-in y slide-up
 class AnimatedListItem extends StatefulWidget {
+  // El widget que va a animar
   final Widget child;
+  // posición del item en la lista para calcular el retraso
   final int index;
+  // Duración del retraso entre items
   final Duration delay;
 
   const AnimatedListItem({
@@ -19,8 +22,11 @@ class AnimatedListItem extends StatefulWidget {
 
 class _AnimatedListItemState extends State<AnimatedListItem>
     with SingleTickerProviderStateMixin {
+  // Controla la duracion de la animación
   late AnimationController _controller;
+  // Animaciones de opacidad
   late Animation<double> _fadeAnimation;
+  // Animación de desplazamiento
   late Animation<Offset> _slideAnimation;
 
   @override
@@ -48,7 +54,7 @@ class _AnimatedListItemState extends State<AnimatedListItem>
       ),
     );
 
-    // Staggered animation based on index
+    // hace que cada elemento aparezca con animacion basado en el índice
     Future.delayed(widget.delay * widget.index, () {
       if (mounted) {
         _controller.forward();

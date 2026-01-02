@@ -22,11 +22,11 @@ class PokeApi {
   // ============================================================
   // 1. LISTADO CON PAGINACIÓN Y FILTROS - UNA SOLA QUERY
   // ============================================================
-  
+
   /// Obtiene pokémon con filtros opcionales en UNA SOLA query GraphQL
   /// Incluye tipos para evitar llamadas adicionales en las cards
   static Future<List<PokemonListItem>> fetchPokemonsWithFilters({
-    int limit = 50, 
+    int limit = 50,
     int offset = 0,
     int? generationId,
     List<String>? types,
@@ -37,7 +37,7 @@ class PokeApi {
     // Construir condiciones dinámicamente
     final conditions = <String>['is_default: {_eq: true}'];
     final variables = <String, dynamic>{'limit': limit, 'offset': offset};
-    
+
     // Filtro de búsqueda por nombre/ID
     if (searchQuery != null && searchQuery.isNotEmpty) {
       final numericId = int.tryParse(searchQuery);
@@ -48,13 +48,13 @@ class PokeApi {
       }
       variables['search'] = '%$searchQuery%';
     }
-    
+
     // Filtro de generación
     if (generationId != null) {
       conditions.add('pokemon_v2_pokemonspecy: {generation_id: {_eq: \$genId}}');
       variables['genId'] = generationId;
     }
-    
+
     // Filtro de tipos (múltiples)
     if (types != null && types.isNotEmpty) {
       for (var i = 0; i < types.length; i++) {
@@ -62,9 +62,9 @@ class PokeApi {
         variables['type$i'] = types[i];
       }
     }
-    
+
     final whereClause = conditions.join(', ');
-    
+
     // Construir declaración de variables
     var varDeclaration = '\$limit: Int!, \$offset: Int!';
     if (searchQuery != null && searchQuery.isNotEmpty) {
@@ -78,7 +78,7 @@ class PokeApi {
         varDeclaration += ', \$type$i: String!';
       }
     }
-    
+
     // Incluir stats solo si necesitamos filtrar por poder
     final needsPowerFilter = minPower != null && maxPower != null;
     final statsField = needsPowerFilter ? '''
@@ -90,7 +90,7 @@ class PokeApi {
             }
           }
     ''' : '';
-    
+
     final query = '''
       query GetPokemonsFiltered($varDeclaration) {
         pokemon_v2_pokemon(
@@ -136,7 +136,7 @@ class PokeApi {
 
       final list = result.data?['pokemon_v2_pokemon'] as List<dynamic>? ?? [];
       print('✅ Respuesta: ${list.length} pokémon');
-      
+
       // Filtrar por poder en memoria si es necesario
       var filtered = list;
       if (needsPowerFilter) {
@@ -148,17 +148,17 @@ class PokeApi {
           return totalStat >= minPower && totalStat <= maxPower;
         }).toList();
       }
-      
+
       final pokemons = filtered.map((data) {
         final pokemon = data as Map<String, dynamic>;
         final id = pokemon['id'] as int;
-        
+
         // Extraer tipos directamente de la query
         final typesData = pokemon['pokemon_v2_pokemontypes'] as List<dynamic>? ?? [];
         final typesList = typesData
             .map((t) => (t as Map<String, dynamic>)['pokemon_v2_type']['name'] as String)
             .toList();
-        
+
         return PokemonListItem(
           id: id,
           name: pokemon['name'] as String,
@@ -181,14 +181,14 @@ class PokeApi {
       return await _getFromCacheOrThrow(offset, limit, e.toString());
     }
   }
-  
+
   /// Helper: Obtener de caché o lanzar error
   static Future<List<PokemonListItem>> _getFromCacheOrThrow(int offset, int limit, String originalError) async {
     try {
       final cacheBox = await Hive.openBox<CachedPokemonList>('pokemon_cache');
       final cacheKey = 'list_${offset}_$limit';
       final cached = cacheBox.get(cacheKey);
-      
+
       if (cached != null) {
         // Verificar si el caché está expirado (más de 7 días)
         if (cached.isExpired(maxAge: const Duration(days: 7))) {
@@ -203,37 +203,37 @@ class PokeApi {
     }
     throw Exception('Sin conexión y sin datos en caché. Error original: $originalError');
   }
-  
+
   /// Helper: Verificar si el caché necesita actualizarse (si es antiguo o no existe)
   static Future<bool> _shouldUpdateCache(int offset, int limit) async {
     try {
       final cacheBox = await Hive.openBox<CachedPokemonList>('pokemon_cache');
       final cacheKey = 'list_${offset}_$limit';
       final cached = cacheBox.get(cacheKey);
-      
+
       // Si no existe caché, debe actualizarse
       if (cached == null) return true;
-      
+
       // Si está expirado (más de 1 día), debe actualizarse
       return cached.isExpired(maxAge: const Duration(hours: 24));
     } catch (e) {
       return true; // En caso de error, intentar actualizar
     }
   }
-  
+
   /// Helper: Guardar en caché
   static Future<void> _saveToCache(List<PokemonListItem> pokemons, int offset, int limit) async {
     try {
       final cacheBox = await Hive.openBox<CachedPokemonList>('pokemon_cache');
       final cacheKey = 'list_${offset}_$limit';
-      
+
       // Limitar tamaño del caché (máximo 30 páginas)
       if (cacheBox.length >= 30) {
         final keys = cacheBox.keys.toList();
         final oldestKey = keys.first;
         await cacheBox.delete(oldestKey);
       }
-      
+
       await cacheBox.put(cacheKey, CachedPokemonList(
         pokemons: pokemons,
         cachedAt: DateTime.now(),
@@ -249,7 +249,7 @@ class PokeApi {
   // 2. SUPER QUERY - DETALLE COMPLETO EN UNA SOLA LLAMADA
   //    Incluye: Stats, Tipos, Habilidades, Movimientos, Evoluciones, Variantes
   // ============================================================
-  
+
   static Future<PokemonDetail> fetchPokemonDetail(int id) async {
     const query = '''
       query GetPokemonDetail(\$id: Int!) {
@@ -383,14 +383,14 @@ class PokeApi {
   // 3. ENCUENTROS POR UBICACIÓN - UNA SOLA QUERY OPTIMIZADA
   //    Busca por nombre de location area directamente
   // ============================================================
-  
+
   static Future<List<PokemonEncounter>> fetchPokemonByLocation(String locationName) async {
     // Normalizar el nombre (remover región si existe, ej: "kanto/pallet-town" -> "pallet-town")
     final parts = locationName.toLowerCase().split('/');
     final cleanName = parts.length > 1 ? parts[1].replaceAll(' ', '-') : parts[0].replaceAll(' ', '-');
-    
+
     print('🗺️ Buscando Pokémon en: $locationName (limpio: $cleanName)');
-    
+
     // UNA SOLA QUERY: Buscar encounters directamente por nombre de location area
     const query = '''
       query GetEncountersByLocationName(\$name: String!) {
@@ -441,39 +441,39 @@ class PokeApi {
 
       final encounters = result.data?['pokemon_v2_encounter'] as List<dynamic>? ?? [];
       print('📊 Encuentros encontrados: ${encounters.length}');
-      
+
       if (encounters.isEmpty) {
         print('⚠️ No se encontraron Pokémon en: $cleanName');
         return [];
       }
-      
+
       // Agrupar por pokemon_id para evitar duplicados
       final pokemonMap = <int, PokemonEncounter>{};
-      
+
       for (final enc in encounters) {
         final encounterData = enc as Map<String, dynamic>;
         final pokemon = encounterData['pokemon_v2_pokemon'] as Map<String, dynamic>?;
-        
+
         if (pokemon == null) continue;
-        
+
         final id = pokemon['id'] as int;
         final name = pokemon['name'] as String;
-        
+
         // Si ya existe, no lo sobrescribimos (ya tenemos uno)
         if (pokemonMap.containsKey(id)) continue;
-        
+
         final minLevel = encounterData['min_level'] as int? ?? 0;
         final maxLevel = encounterData['max_level'] as int? ?? 0;
-        
+
         // Obtener método y rarity del slot
         final slot = encounterData['pokemon_v2_encounterslot'] as Map<String, dynamic>?;
         final rarity = slot?['rarity'] as int? ?? 0;
         final methodData = slot?['pokemon_v2_encountermethod'] as Map<String, dynamic>?;
         final method = methodData?['name'] as String? ?? 'unknown';
-        
+
         final version = encounterData['pokemon_v2_version'] as Map<String, dynamic>?;
         final versionName = version?['name'] as String? ?? 'unknown';
-        
+
         pokemonMap[id] = PokemonEncounter(
           id: id,
           name: name,
@@ -502,7 +502,7 @@ class PokeApi {
   /// Obtiene múltiples pokémon por IDs en UNA SOLA query (para trivia)
   static Future<List<PokemonListItem>> fetchPokemonsByIds(List<int> ids) async {
     if (ids.isEmpty) return [];
-    
+
     final query = '''
       query GetPokemonsByIds(\$ids: [Int!]!) {
         pokemon_v2_pokemon(
@@ -533,7 +533,7 @@ class PokeApi {
 
       final pokemons = result.data?['pokemon_v2_pokemon'] as List<dynamic>? ?? [];
       print('✅ Trivia: ${pokemons.length} pokémon obtenidos');
-      
+
       return pokemons.map((p) {
         final pokemon = p as Map<String, dynamic>;
         final id = pokemon['id'] as int;
