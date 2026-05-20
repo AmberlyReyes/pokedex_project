@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:fl_chart/fl_chart.dart';
 
 class StatsRadarChart extends StatelessWidget {
+  //lista de nombre de estadisticas y sus valores
   final Map<String, int> data;
+  // valor maximo para la escala del radar
   final int maxValue;
 
   const StatsRadarChart({
@@ -64,6 +66,7 @@ class RadarChartWidget extends StatelessWidget {
         titlePositionPercentageOffset: 0.15,
         getTitle: (index, angle) {
           return RadarChartTitle(
+            // nombre de la estadisticas
             text: _formatStatName(labels[index]),
             angle: angle,
             positionPercentageOffset: 0.15,

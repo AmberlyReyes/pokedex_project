@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+// animacion simple la pagina nueva aparece gradualmente sin movimiento
 class PageTransitions {
   static Route fade(Widget page) {
     return PageRouteBuilder(
@@ -14,7 +15,7 @@ class PageTransitions {
   }
 }
 
-/// Custom page route with slide and fade transition
+/// la nueva pagina entra deslizandose desde la derecha con una duracion de 400ms
 class SlidePageRoute extends PageRouteBuilder {
   final Widget page;
 
@@ -43,7 +44,7 @@ class SlidePageRoute extends PageRouteBuilder {
         );
 }
 
-/// Scale and fade transition for page navigation
+/// la pagina nueva aparece con un efecto de escala y desvanecimiento y dura 500ms
 class ScalePageRoute extends PageRouteBuilder {
   final Widget page;
 

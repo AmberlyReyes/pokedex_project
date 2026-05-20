@@ -96,8 +96,8 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
       }
 
       setState(() {
+        // Actualizar estado con los datos cargados
         _detail = detail;
-        // Los datos de evoluciones y variantes ya vienen en el detalle
         _evolutions = detail.evolutions;
         _variants = detail.variants;
         _selectedVariant = null; // Comenzar con el Pokémon base
@@ -105,7 +105,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
         _loading = false;
       });
 
-      // Start animations after data loads
+      // Comienza las animaciones despues de cargar los datos
       _fadeController.forward();
       _slideController.forward();
     } catch (e) {
@@ -346,6 +346,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
     );
   }
 
+  // Primer tab - informacion sobre nombre, tipos, altura, peso, variantes
   Widget _buildBasicInfoTab() {
     final l10n = AppLocalizations.of(context)!;
     return SingleChildScrollView(
@@ -503,6 +504,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
     );
   }
 
+  // segundo tab - habilidades y evoluciones
   Widget _buildAbilitiesTab() {
     final l10n = AppLocalizations.of(context)!;
     return SingleChildScrollView(
@@ -948,6 +950,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
     );
   }
 
+  // tercer tab - estadisticas y radar chart
   Widget _buildStatsTab() {
     // Calculate total stats
     final totalStats = _detail!.stats.values.reduce((a, b) => a + b);
@@ -1047,6 +1050,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
     );
   }
 
+  // quinto tab - tipos, debilidades, resistencias, inmunidades
   Widget _buildCombatTab() {
     final l10n = AppLocalizations.of(context)!;
     final weaknesses = <String, double>{};
@@ -1132,7 +1136,7 @@ class _PokemonDetailScreenState extends State<PokemonDetailScreen>
   }
 }
 
-/// Widget para movimientos con virtualización real usando Slivers
+// cuarto tab - movimientos
 class PokemonMovesTab extends StatefulWidget {
   final List<PokemonMove> moves;
   final AppLocalizations l10n;

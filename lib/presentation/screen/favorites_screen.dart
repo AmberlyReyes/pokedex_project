@@ -20,9 +20,11 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
   @override
   void initState() {
     super.initState();
+    // abre la caja de favoritos
     _favoritesBoxFuture = Hive.openBox<PokemonDetail>('favorites');
   }
 
+  // Obtiene todos los favoritos como una lista de mapas para mostar, muestra los mas recientes primero.
   List<Map<String, dynamic>> getAllFavorites(Box<PokemonDetail> box) {
     final data = box.keys.map((key) {
       final value = box.get(key);
@@ -48,19 +50,24 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
         backgroundColor: Theme.of(context).colorScheme.primary,
         foregroundColor: Colors.white,
       ),
+      // espera a que se abra la caja de favoritos
       body: FutureBuilder<Box<PokemonDetail>>(
         future: _favoritesBoxFuture,
         builder: (context, snapshot) {
+          // muestra un indicador de carga mientras se abre la caja
           if (snapshot.connectionState != ConnectionState.done) {
             return Center(child: Text(l10n.loading));
           }
+          // maneja errores al abrir la caja
           if (snapshot.hasError) {
             return Center(child: Text('${l10n.error}: ${snapshot.error}'));
           }
+          // caja lista para usar
           final box = snapshot.data!;
           return ValueListenableBuilder(
             valueListenable: box.listenable(),
             builder: (context, Box<PokemonDetail> box, _) {
+              // Si no hay favoritos, muestra un mensaje para agregar favoritos
               if (box.isEmpty) {
                 return Center(
                   child: Column(
@@ -92,6 +99,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                 );
               }
 
+              // convierte la lista de pokemones guardados en una lista
               final favorites = box.values.toList();
 
               return ListView.builder(
@@ -100,6 +108,7 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                   final pokemon = favorites[index];
                   return ListTile(
                     leading: CachedNetworkImage(
+                      // imagen del sprite del pokemon
                       imageUrl: pokemon.spriteUrl,
                       width: 50,
                       height: 50,
@@ -112,14 +121,17 @@ class _FavoritesScreenState extends State<FavoritesScreen> {
                       ),
                       errorWidget: (context, url, error) => const Icon(Icons.catching_pokemon),
                     ),
+                    // nombre del pokemon
                     title: Text(
                       pokemon.name,
                       style: const TextStyle(color: Colors.white),
                     ),
+                    // id del pokemon
                     subtitle: Text(
                       '#${pokemon.id}',
                       style: const TextStyle(color: Colors.white),
                     ),
+                    // boton para eliminar de favoritos
                     trailing: IconButton(
                       icon: const Icon(Icons.delete, color: Colors.red),
                       onPressed: () {

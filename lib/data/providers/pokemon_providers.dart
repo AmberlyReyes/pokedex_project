@@ -15,6 +15,7 @@ enum PowerRange {
   legendary // 600+: Legendarios y míticos
 }
 
+// convirtiendo los enums en rangos numéricos
 extension PowerRangeExtension on PowerRange {
   int get minStat {
     switch (this) {
@@ -41,6 +42,7 @@ final pokemonListProvider = StateNotifierProvider<PokemonListNotifier, AsyncValu
   return PokemonListNotifier();
 });
 
+// manejo de fetching, paginación, filtros, búsqueda, ordenación, refrescar y control de estado
 class PokemonListNotifier extends StateNotifier<AsyncValue<List<PokemonListItem>>> {
   /// Reinicia los filtros activos
   void resetFilters() {
@@ -55,16 +57,18 @@ class PokemonListNotifier extends StateNotifier<AsyncValue<List<PokemonListItem>
   void clearSearch() {
     _searchQuery = null;
   }
-  
+
+  // carga automatica de la primera página
   PokemonListNotifier() : super(const AsyncValue.loading()) {
     fetchPokemons(); // Initial automatic fetch
   }
 
-  int _offset = 0;
-  final int _pageSize = 50;
-  bool _hasMore = true;
-  bool _isFetching = false;
+  int _offset = 0; // Paginación
+  final int _pageSize = 50; // cuantos pokemones traer por página
+  bool _hasMore = true; // si hay más pokemones para cargar
+  bool _isFetching = false; // si ya se está haciendo una petición
 
+  // guardado de todos los pokemones cargados
   List<PokemonListItem> _allPokemons = [];
 
   // Filtros activos
@@ -82,7 +86,7 @@ class PokemonListNotifier extends StateNotifier<AsyncValue<List<PokemonListItem>
   SortOption get sortOption => _sortOption;
   bool get isLoadingMore => _isFetching;
 
-  /// Establece filtros desde persistencia (llamar al inicio)
+  /// Establece filtros para la persistencia (se llamar al inicio)
   void setFiltersFromPersistence({
     int? generation,
     List<String>? types,
@@ -113,14 +117,16 @@ class PokemonListNotifier extends StateNotifier<AsyncValue<List<PokemonListItem>
   }
 
   Future<void> fetchPokemons({
-    bool isRefresh = false,
+    bool isRefresh = false, // si es una recarga completa
     int? generation,
     List<String>? types,
     PowerRange? power,
-    String? searchQuery,
+    String? searchQuery, // nombre de pokemon para búsqueda
   }) async {
+    // Evita llamadas concurrentes o si no hay más pokemones
     if (_isFetching || (!isRefresh && !_hasMore)) return;
 
+    // Marca que se está haciendo una petición para evitar sobrepeticion
     _isFetching = true;
 
     // Guardar filtros activos (solo si se pasan explícitamente)
@@ -130,10 +136,10 @@ class PokemonListNotifier extends StateNotifier<AsyncValue<List<PokemonListItem>
     if (searchQuery != null) _searchQuery = searchQuery;
 
     if (isRefresh) {
-      _offset = 0;
-      _allPokemons.clear();
-      _hasMore = true;
-      state = const AsyncValue.loading();
+      _offset = 0; // reinicia paginación
+      _allPokemons.clear(); // limpia lista actual
+      _hasMore = true; // perimete nuevas cargas
+      state = const AsyncValue.loading(); // estado de carga
     }
 
     try {
@@ -147,10 +153,11 @@ class PokemonListNotifier extends StateNotifier<AsyncValue<List<PokemonListItem>
         maxPower: _filterPower?.maxStat,
         searchQuery: _searchQuery,
       );
-      
+
+      // Si no hay nuevos pokemones, marca que no hay más para cargar
       if (newPokemons.isEmpty) {
         _hasMore = false;
-      } else {
+      } else { // Si hay nuevos pokemones, actualiza offset y lista
         _offset += newPokemons.length;
         _allPokemons.addAll(newPokemons);
       }
@@ -165,6 +172,7 @@ class PokemonListNotifier extends StateNotifier<AsyncValue<List<PokemonListItem>
     }
   }
 
+  // Refresca la lista actual con los filtros activos
   Future<void> refreshPokemons() async {
     _hasMore = true;
     await fetchPokemons(
@@ -176,6 +184,7 @@ class PokemonListNotifier extends StateNotifier<AsyncValue<List<PokemonListItem>
     );
   }
 
+  // Aplica nuevos filtros y refresca la lista
   Future<void> applyFilters({
     int? generation,
     List<String>? types,
@@ -210,7 +219,7 @@ class PokemonListNotifier extends StateNotifier<AsyncValue<List<PokemonListItem>
     }
   }
 
-  /// Search globally across all pokemons (RESPETA filtros activos)
+  /// busca todos los pokemones(RESPETA filtros activos)
   Future<void> globalSearch(String query) async {
     if (query.trim().isEmpty) {
       await refreshPokemons();
