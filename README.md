@@ -1,4 +1,4 @@
-# Pokédex App by Amber and Erick
+# Pokédex App 
 
 A Flutter project.
 
@@ -33,3 +33,4 @@ A Flutter project.
   - Contenido progresivo (delay 100ms entre secciones)
   - Barras de estadísticas animadas (2s para llenar)
 
+![alt text](image.png) ![alt text](image-1.png) ![alt text](image-2.png)
